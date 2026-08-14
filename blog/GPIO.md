@@ -1,5 +1,177 @@
 # STM32 GPIO 학습 기록
 
+## GPIO란?
+
+GPIO는 `General Purpose Input/Output`의 약자로, **범용 입출력 핀**을 의미한다. MCU가 외부 장치와 디지털 신호를 주고받을 때 사용하는 가장 기본적인 인터페이스다.
+
+STM32와 같은 MCU는 GPIO를 통해 LED, 버튼, 센서, 릴레이, 모터 드라이버 등의 외부 장치와 연결된다.
+
+```text
+LED · 버튼 · 센서 · 릴레이 · 모터 드라이버
+                    ↕
+                  GPIO
+                    ↕
+                   MCU
+```
+
+### GPIO의 기본 구조
+
+GPIO의 동작은 신호 방향에 따라 `Input`과 `Output`으로 구분한다.
+
+| 구분 | 역할 | 신호 방향 |
+|---|---|---|
+| `Input` | 버튼이나 센서 등의 외부 신호 읽기 | 외부 → MCU |
+| `Output` | LED나 릴레이 등의 외부 장치 제어 | MCU → 외부 |
+
+```text
+Input : 버튼·센서 → GPIO → MCU
+Output: MCU → GPIO → LED·릴레이
+```
+
+### GPIO Output
+
+GPIO Output은 MCU에서 외부 장치로 `HIGH` 또는 `LOW` 신호를 출력하는 방식이다. 현재 프로젝트에서는 LED를 제어할 때 사용했다.
+
+```c
+/* GPIO 출력을 HIGH로 변경 */
+HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+
+/* GPIO 출력을 LOW로 변경 */
+HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+```
+
+현재 LED 회로에서는 `SET`일 때 LED가 켜지고 `RESET`일 때 꺼진다.
+
+### GPIO Input
+
+GPIO Input은 버튼이나 센서에서 발생한 디지털 신호를 MCU가 읽는 방식이다. 현재 프로젝트에서는 PC13에 연결된 사용자 버튼의 상태를 읽을 때 사용했다.
+
+```c
+GPIO_PinState state;
+
+state = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+```
+
+반환값은 `GPIO_PIN_SET` 또는 `GPIO_PIN_RESET`이며 조건문으로 입력 상태를 판단할 수 있다.
+
+```c
+if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET)
+{
+    /* 버튼 입력 처리 */
+}
+```
+
+### HIGH와 LOW
+
+GPIO는 기본적으로 두 가지 논리 상태를 사용하는 디지털 신호다.
+
+| 상태 | 논리값 | 전압의 의미 |
+|---|---:|---|
+| `HIGH` | 1 | 높은 전압 상태 |
+| `LOW` | 0 | 낮은 전압 상태 |
+
+3.3V MCU에서는 개념적으로 `HIGH`는 3.3V에 가까운 상태, `LOW`는 0V에 가까운 상태다. 다만 실제로 HIGH와 LOW를 판정하는 전압 범위는 MCU 데이터시트에서 확인해야 한다.
+
+### GPIO Port와 Pin
+
+STM32의 GPIO는 `PA0`, `PA5`, `PB3`, `PC13`처럼 Port와 Pin 번호를 조합해 표현한다.
+
+`PA5`는 다음과 같은 의미다.
+
+| 표기 | 의미 |
+|---|---|
+| `P` | Port |
+| `A` | Port A |
+| `5` | Pin 5 |
+
+하나의 GPIO Port에는 여러 Pin이 포함된다.
+
+```text
+GPIOA
+├── PA0
+├── PA1
+├── PA2
+├── PA3
+├── PA4
+└── PA5
+```
+
+STM32 HAL에서는 Port와 Pin을 각각 전달해 제어한다.
+
+```c
+HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+```
+
+### Pull-up, Pull-down과 Floating
+
+입력 핀에 HIGH나 LOW를 만들어 주는 신호가 없으면 입력 상태가 불확실해질 수 있다. 이를 `Floating` 상태라고 한다.
+
+- `Pull-up`: 저항을 통해 입력의 기본 상태를 `HIGH`로 유지한다.
+- `Pull-down`: 저항을 통해 입력의 기본 상태를 `LOW`로 유지한다.
+
+일반적인 Pull-up 버튼 회로에서는 버튼을 놓았을 때 `HIGH`, 눌렀을 때 GND와 연결되어 `LOW`가 된다.
+
+| Pull-up 버튼 상태 | GPIO 입력 |
+|---|---|
+| 버튼을 놓음 | `HIGH` |
+| 버튼을 누름 | `LOW` |
+
+현재 프로젝트의 PC13 버튼은 다음과 같이 `GPIO_NOPULL`로 설정되어 있으므로, 내부 Pull-up이나 Pull-down을 사용한 구현은 아니다.
+
+```c
+GPIO_InitStruct.Pin = USER_BUTTON_Pin;
+GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+GPIO_InitStruct.Pull = GPIO_NOPULL;
+```
+
+### GPIO 입력과 출력의 연결
+
+버튼으로 LED를 제어하는 동작은 GPIO 입력과 출력을 함께 사용하는 기본적인 구조다.
+
+```text
+버튼 → GPIO Input → MCU → GPIO Output → LED
+```
+
+```c
+if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET)
+{
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+}
+else
+{
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+}
+```
+
+```text
+입력 읽기 → 상태 판단 → 출력 제어
+```
+
+위 코드는 GPIO의 기본 관계를 보여 주는 예시다. 현재 프로젝트에서는 여기에 50ms 디바운싱과 LED 상태 전환을 추가해 구현했다.
+
+### 기본 개념 정리
+
+| 개념 | 설명 |
+|---|---|
+| GPIO | 범용 입출력 핀 |
+| Input | 외부에서 MCU로 들어오는 신호 |
+| Output | MCU에서 외부로 내보내는 신호 |
+| HIGH | 논리 1, 높은 전압 상태 |
+| LOW | 논리 0, 낮은 전압 상태 |
+| Pull-up | 입력의 기본 상태를 HIGH로 유지 |
+| Pull-down | 입력의 기본 상태를 LOW로 유지 |
+| Floating | 입력값을 확정하기 어려운 상태 |
+
+GPIO는 MCU와 외부 장치를 연결하는 가장 기본적인 디지털 입출력 인터페이스다.
+
+### 이후 학습 순서
+
+```text
+GPIO → Interrupt → PWM → ADC → UART → I2C → SPI
+```
+
+---
+
 ## GPIO 출력으로 LED 점멸하기
 
 ## 구현 목표
@@ -129,7 +301,11 @@ GPIOA에 연결된 빨간색 LED와 GPIOB에 연결된 나머지 LED는 포트�
 
 ## GPIO 버튼 입력과 디바운싱
 
+### 구현 목표
+
 PC13의 사용자 버튼을 `GPIO_MODE_INPUT`으로 설정하고 `HAL_GPIO_ReadPin()`으로 반복해서 읽는다. 버튼 접점이 눌리는 순간 짧게 흔들리는 바운스 때문에 한 번의 입력이 여러 번 인식될 수 있어, 입력이 바뀐 뒤 50ms 동안 같은 값이 유지될 때만 확정 상태로 받아들인다.
+
+확정된 버튼 눌림마다 LED 상태를 `IDLE → RUNNING → WARNING → ERROR → IDLE` 순서로 변경하고, 각 상태에 해당하는 LED 하나만 켠다.
 
 ```c
 #define USER_BUTTON_Pin GPIO_PIN_13
@@ -171,7 +347,9 @@ if ((HAL_GetTick() - lastDebounceTime) >= BUTTON_DEBOUNCE_MS)
 
         if (stableButtonState == GPIO_PIN_SET)
         {
-            /* 버튼 눌림을 한 번 처리 */
+            currentState =
+                (LED_State)((currentState + 1) % LED_STATE_COUNT);
+            LED_ShowState(currentState);
         }
     }
 }
@@ -181,6 +359,29 @@ if ((HAL_GetTick() - lastDebounceTime) >= BUTTON_DEBOUNCE_MS)
 
 안정된 버튼 상태가 `GPIO_PIN_SET`으로 바뀌는 순간에만 상태를 전환한다. 버튼을 계속 누르는 동안에는 `buttonReading`과 `stableButtonState`가 모두 `SET`이므로 다시 처리되지 않는다. 버튼을 놓아 `RESET`이 확정된 뒤 다시 눌러야 다음 입력이 발생한다.
 
+### 버튼 입력과 LED 상태 연결
+
+프로그램 시작 시 `currentState`는 `LED_STATE_IDLE`이며, `LED_ShowState()`를 한 번 호출해 초록색 LED를 켠다.
+
+```c
+static LED_State currentState = LED_STATE_IDLE;
+
+LED_ShowState(currentState);
+```
+
+버튼 눌림이 확정되면 현재 상태에 1을 더한다. `LED_STATE_COUNT`로 나머지 연산을 하기 때문에 마지막 `ERROR` 다음에는 다시 `IDLE`로 돌아간다.
+
+`LED_ShowState()`는 상태와 LED를 다음과 같이 연결한다.
+
+| 상태 | 켜지는 LED | GPIO |
+|---|---|---|
+| `LED_STATE_IDLE` | 초록색 | PB5 |
+| `LED_STATE_RUNNING` | 파란색 | PB4 |
+| `LED_STATE_WARNING` | 노란색 | PB10 |
+| `LED_STATE_ERROR` | 빨간색 | PA8 |
+
+각 상태에서는 `LED_On()`이 먼저 모든 LED를 끄므로 항상 상태에 해당하는 LED 하나만 켜진다.
+
 ### 전체 동작 흐름
 
 ```text
@@ -189,8 +390,18 @@ PC13 입력 읽기
 → 입력이 바뀌면 변화 시각 기록
 → 50ms 이상 유지됐는지 확인
 → 확정 상태 갱신
-→ SET으로 바뀐 순간만 버튼 눌림 처리
+→ SET으로 바뀐 순간에 다음 상태로 전환
+→ 상태에 해당하는 LED 하나를 켬
 ```
+
+위 흐름은 현재 소스 코드에 구현되어 있다. 실제 보드에서의 동작 확인 결과는 별도로 기록하지 않았다.
+
+### 배운 점
+
+- GPIO 입력값을 바로 사용하지 않고 일정 시간 유지됐는지 검사하면 버튼 바운스를 줄일 수 있다.
+- `HAL_GetTick()`을 사용하면 `HAL_Delay()`로 반복문을 멈추지 않고 경과 시간을 검사할 수 있다.
+- 확정 상태가 `SET`으로 바뀌는 순간만 처리하면 버튼을 길게 눌렀을 때 상태가 계속 바뀌는 것을 막을 수 있다.
+- 버튼 입력 처리와 LED 출력 함수를 연결해 GPIO 입력에 따라 여러 GPIO 출력을 전환할 수 있다.
 
 ### 한 줄 정리
 

@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 GPIO: LED와 버튼 제어</title>
+  <style>
+    :root {
+      --text: #222222;
+      --muted: #666666;
+      --line: #e5e5e5;
+      --primary: #2563eb;
+      --soft: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background: #ffffff;
+      font: 16px/1.7 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      word-break: keep-all;
+    }
+    .hero {
+      padding: 56px 24px 36px;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-inner, main { width: min(820px, calc(100% - 40px)); margin: 0 auto; }
+    .eyebrow { margin: 0 0 6px; color: var(--primary); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(34px, 6vw, 46px); line-height: 1.2; letter-spacing: -0.035em; }
+    .hero-description { max-width: 650px; margin: 12px 0 0; color: var(--muted); }
+    main { padding: 32px 0 72px; }
+    .toc {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-bottom: 44px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    .toc a {
+      color: var(--muted);
+      font-size: 14px;
+      text-decoration: none;
+    }
+    .toc a:hover { color: var(--primary); }
+    article { width: 100%; }
+    h2, h3 { scroll-margin-top: 24px; line-height: 1.35; letter-spacing: -0.025em; }
+    h2 { margin: 0 0 18px; font-size: 28px; }
+    h2:not(:first-child) { margin-top: 64px; padding-top: 48px; border-top: 1px solid var(--line); }
+    h3 { margin: 38px 0 12px; font-size: 20px; }
+    p { margin: 12px 0; }
+    code { padding: 2px 5px; border-radius: 4px; color: #1d4ed8; background: #eef3ff; font-family: Consolas, "Courier New", monospace; font-size: 0.92em; }
+    pre {
+      overflow-x: auto;
+      margin: 16px 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: #24292f;
+      background: var(--soft);
+      line-height: 1.6;
+    }
+    pre code { padding: 0; color: inherit; background: transparent; font-size: 14px; }
+    .diagram { margin: 20px 0; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); }
+    .diagram-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .diagram-node { padding: 9px 14px; border: 1px solid #cfd6df; border-radius: 6px; background: #ffffff; font-weight: 650; text-align: center; }
+    .diagram-node.primary { color: #ffffff; border-color: var(--primary); background: var(--primary); }
+    .diagram-arrow { color: #888888; font-weight: 700; }
+    .diagram-stack { display: grid; justify-items: center; gap: 8px; }
+    .diagram-label { margin: 0 0 12px; color: var(--muted); font-size: 14px; font-weight: 650; text-align: center; }
+    .flow-steps { display: flex; align-items: stretch; gap: 0; margin: 20px 0; overflow-x: auto; }
+    .flow-step { display: flex; min-width: 130px; flex: 1; align-items: center; justify-content: center; padding: 12px; border: 1px solid var(--line); background: #ffffff; font-size: 14px; font-weight: 650; text-align: center; }
+    .flow-step + .flow-step { border-left: 0; }
+    .flow-step:first-child { border-radius: 6px 0 0 6px; }
+    .flow-step:last-child { border-radius: 0 6px 6px 0; }
+    .pin-grid { display: grid; grid-template-columns: repeat(3, minmax(80px, 1fr)); gap: 8px; width: min(420px, 100%); }
+    .pin-grid .diagram-node:first-child { grid-column: 1 / -1; color: var(--primary); border-color: #b9ccfa; background: #eef3ff; }
+    table { width: 100%; margin: 16px 0; border: 1px solid var(--line); border-collapse: collapse; table-layout: fixed; }
+    th, td { padding: 10px 14px; border: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+    th { background: var(--soft); font-size: 14px; }
+    tr:last-child td { border-bottom: 0; }
+    ul { margin: 12px 0; padding-left: 24px; }
+    li { margin: 6px 0; }
+    .summary { margin-top: 24px; padding: 14px 16px; border-left: 3px solid var(--primary); background: var(--soft); }
+
+    @media (max-width: 700px) {
+      .hero { padding: 40px 20px 28px; }
+      .hero-inner, main { width: min(100% - 28px, 820px); }
+      main { padding-top: 24px; }
+      .toc { gap: 7px 14px; margin-bottom: 36px; }
+      h2 { font-size: 25px; }
+      h3 { font-size: 19px; }
+      .diagram { padding: 16px; }
+      .diagram-row { gap: 7px; }
+      .diagram-node { padding: 8px 10px; font-size: 14px; }
+      table { font-size: 14px; }
+      th, td { padding: 8px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Embedded Study Note</p>
+      <h1>STM32 GPIO: LED와 버튼 제어</h1>
+      <p class="hero-description">GPIO 기본 개념부터 LED 출력, 버튼 입력, 디바운싱까지 정리한다.</p>
+    </div>
+  </header>
+
+  <main>
+    <nav class="toc" aria-label="문서 목차">
+      <a href="#definition">GPIO란?</a>
+      <a href="#structure">기본 구조</a>
+      <a href="#output">Output</a>
+      <a href="#input">Input</a>
+      <a href="#signal">HIGH / LOW</a>
+      <a href="#port-pin">Port와 Pin</a>
+      <a href="#pull">Pull 저항</a>
+      <a href="#led-blink">LED 점멸</a>
+      <a href="#led-sequence">LED 순차 점등</a>
+      <a href="#button-debounce">버튼·Debounce</a>
+      <a href="#summary">개념 정리</a>
+    </nav>
+
+    <article>
+
+  <h2 id="definition">GPIO란?</h2>
+  <p>GPIO는 <code>General Purpose Input/Output</code>의 약자로, <strong>범용 입출력 핀</strong>을 의미한다. MCU가 외부 장치와 디지털 신호를 주고받을 때 사용하는 가장 기본적인 인터페이스다.</p>
+  <p>STM32와 같은 MCU는 GPIO를 통해 LED, 버튼, 센서, 릴레이, 모터 드라이버 등의 외부 장치와 연결된다.</p>
+  <div class="diagram" aria-label="외부 장치와 MCU의 GPIO 연결 구조">
+    <p class="diagram-label">외부 장치와 MCU의 연결</p>
+    <div class="diagram-stack">
+      <div class="diagram-row">
+        <span class="diagram-node">LED</span>
+        <span class="diagram-node">버튼</span>
+        <span class="diagram-node">센서</span>
+        <span class="diagram-node">릴레이</span>
+        <span class="diagram-node">모터 드라이버</span>
+      </div>
+      <span class="diagram-arrow">↕</span>
+      <span class="diagram-node primary">GPIO</span>
+      <span class="diagram-arrow">↕</span>
+      <span class="diagram-node">MCU</span>
+    </div>
+  </div>
+
+  <h3 id="structure">GPIO의 기본 구조</h3>
+  <p>GPIO의 동작은 신호 방향에 따라 <code>Input</code>과 <code>Output</code>으로 구분한다.</p>
+  <table>
+    <thead><tr><th>구분</th><th>역할</th><th>신호 방향</th></tr></thead>
+    <tbody>
+      <tr><td><code>Input</code></td><td>버튼이나 센서 등의 외부 신호 읽기</td><td>외부 → MCU</td></tr>
+      <tr><td><code>Output</code></td><td>LED나 릴레이 등의 외부 장치 제어</td><td>MCU → 외부</td></tr>
+    </tbody>
+  </table>
+  <div class="diagram" aria-label="GPIO Input과 Output의 신호 방향">
+    <p class="diagram-label">Input</p>
+    <div class="diagram-row">
+      <span class="diagram-node">버튼·센서</span><span class="diagram-arrow">→</span>
+      <span class="diagram-node primary">GPIO</span><span class="diagram-arrow">→</span>
+      <span class="diagram-node">MCU</span>
+    </div>
+    <p class="diagram-label" style="margin-top: 20px;">Output</p>
+    <div class="diagram-row">
+      <span class="diagram-node">MCU</span><span class="diagram-arrow">→</span>
+      <span class="diagram-node primary">GPIO</span><span class="diagram-arrow">→</span>
+      <span class="diagram-node">LED·릴레이</span>
+    </div>
+  </div>
+
+  <h3 id="output">GPIO Output</h3>
+  <p>GPIO Output은 MCU에서 외부 장치로 <code>HIGH</code> 또는 <code>LOW</code> 신호를 출력하는 방식이다. 현재 프로젝트에서는 LED를 제어할 때 사용했다.</p>
+  <pre><code>/* GPIO 출력을 HIGH로 변경 */
+HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+
+/* GPIO 출력을 LOW로 변경 */
+HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);</code></pre>
+  <p>현재 LED 회로에서는 <code>SET</code>일 때 LED가 켜지고 <code>RESET</code>일 때 꺼진다.</p>
+
+  <h3 id="input">GPIO Input</h3>
+  <p>GPIO Input은 버튼이나 센서에서 발생한 디지털 신호를 MCU가 읽는 방식이다. 현재 프로젝트에서는 PC13에 연결된 사용자 버튼의 상태를 읽을 때 사용했다.</p>
+  <pre><code>GPIO_PinState state;
+
+state = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);</code></pre>
+  <p>반환값은 <code>GPIO_PIN_SET</code> 또는 <code>GPIO_PIN_RESET</code>이며 조건문으로 입력 상태를 판단할 수 있다.</p>
+  <pre><code>if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET)
+{
+    /* 버튼 입력 처리 */
+}</code></pre>
+
+  <h3 id="signal">HIGH와 LOW</h3>
+  <table>
+    <thead><tr><th>상태</th><th>논리값</th><th>전압의 의미</th></tr></thead>
+    <tbody>
+      <tr><td><code>HIGH</code></td><td>1</td><td>높은 전압 상태</td></tr>
+      <tr><td><code>LOW</code></td><td>0</td><td>낮은 전압 상태</td></tr>
+    </tbody>
+  </table>
+  <p>3.3V MCU에서는 개념적으로 <code>HIGH</code>는 3.3V에 가까운 상태, <code>LOW</code>는 0V에 가까운 상태다. 실제 판정 전압 범위는 MCU 데이터시트에서 확인해야 한다.</p>
+
+  <h3 id="port-pin">GPIO Port와 Pin</h3>
+  <p>STM32의 GPIO는 <code>PA0</code>, <code>PA5</code>, <code>PB3</code>, <code>PC13</code>처럼 Port와 Pin 번호를 조합해 표현한다.</p>
+  <table>
+    <thead><tr><th>표기</th><th>의미</th></tr></thead>
+    <tbody>
+      <tr><td><code>P</code></td><td>Port</td></tr>
+      <tr><td><code>A</code></td><td>Port A</td></tr>
+      <tr><td><code>5</code></td><td>Pin 5</td></tr>
+    </tbody>
+  </table>
+  <div class="diagram" aria-label="GPIOA Port와 Pin 구성">
+    <div class="pin-grid">
+      <span class="diagram-node">GPIOA</span>
+      <span class="diagram-node">PA0</span>
+      <span class="diagram-node">PA1</span>
+      <span class="diagram-node">PA2</span>
+      <span class="diagram-node">PA3</span>
+      <span class="diagram-node">PA4</span>
+      <span class="diagram-node">PA5</span>
+    </div>
+  </div>
+  <pre><code>HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);</code></pre>
+
+  <h3 id="pull">Pull-up, Pull-down과 Floating</h3>
+  <p>입력 핀에 HIGH나 LOW를 만들어 주는 신호가 없으면 입력 상태가 불확실해질 수 있다. 이를 <code>Floating</code> 상태라고 한다.</p>
+  <ul>
+    <li><code>Pull-up</code>: 저항을 통해 입력의 기본 상태를 <code>HIGH</code>로 유지한다.</li>
+    <li><code>Pull-down</code>: 저항을 통해 입력의 기본 상태를 <code>LOW</code>로 유지한다.</li>
+  </ul>
+  <table>
+    <thead><tr><th>Pull-up 버튼 상태</th><th>GPIO 입력</th></tr></thead>
+    <tbody>
+      <tr><td>버튼을 놓음</td><td><code>HIGH</code></td></tr>
+      <tr><td>버튼을 누름</td><td><code>LOW</code></td></tr>
+    </tbody>
+  </table>
+  <p>현재 프로젝트의 PC13 버튼은 내부 Pull-up이나 Pull-down을 사용하지 않는다.</p>
+  <pre><code>GPIO_InitStruct.Pin = USER_BUTTON_Pin;
+GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+GPIO_InitStruct.Pull = GPIO_NOPULL;</code></pre>
+
+  <h3 id="connection">GPIO 입력과 출력의 연결</h3>
+  <div class="diagram diagram-row" aria-label="버튼 입력으로 LED를 제어하는 구조">
+    <span class="diagram-node">버튼</span><span class="diagram-arrow">→</span>
+    <span class="diagram-node primary">GPIO Input</span><span class="diagram-arrow">→</span>
+    <span class="diagram-node">MCU</span><span class="diagram-arrow">→</span>
+    <span class="diagram-node primary">GPIO Output</span><span class="diagram-arrow">→</span>
+    <span class="diagram-node">LED</span>
+  </div>
+  <pre><code>if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET)
+{
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+}
+else
+{
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+}</code></pre>
+  <div class="flow-steps" aria-label="GPIO 제어 흐름">
+    <div class="flow-step">1. 입력 읽기</div>
+    <div class="flow-step">2. 상태 판단</div>
+    <div class="flow-step">3. 출력 제어</div>
+  </div>
+  <p>위 코드는 GPIO의 기본 관계를 보여 주는 예시다. 현재 프로젝트에서는 여기에 50ms 디바운싱과 LED 상태 전환을 추가해 구현했다.</p>
+
+  <h2 id="led-blink">GPIO 출력으로 LED 점멸하기</h2>
+
+  <h3>구현 목표</h3>
+  <p>NUCLEO-F401RE의 <code>D4(PB5)</code>에 연결한 초록색 LED를 1초 간격으로 켜고 끈다.</p>
+
+  <h3>핵심 코드</h3>
+  <pre><code>while (1)
+{
+    HAL_GPIO_TogglePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin);
+    HAL_Delay(1000);
+}</code></pre>
+
+  <h3>코드 설명</h3>
+  <p><code>GREEN_LED_GPIO_Port</code>와 <code>GREEN_LED_Pin</code>은 각각 <code>GPIOB</code>와 <code>GPIO_PIN_5</code>를 의미한다. 따라서 다음 함수는 PB5의 현재 출력 상태를 반전한다.</p>
+  <pre><code>HAL_GPIO_TogglePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin);</code></pre>
+  <ul>
+    <li>현재 출력이 <code>LOW</code>이면 <code>HIGH</code>로 변경한다.</li>
+    <li>현재 출력이 <code>HIGH</code>이면 <code>LOW</code>로 변경한다.</li>
+  </ul>
+  <p>이 회로에서는 PB5가 <code>HIGH</code>일 때 LED가 켜지고, <code>LOW</code>일 때 LED가 꺼진다.</p>
+  <pre><code>HAL_Delay(1000);</code></pre>
+  <p><code>HAL_Delay()</code>의 단위는 밀리초이므로 <code>1000</code>은 1초를 의미한다. LED의 상태를 반전한 뒤 1초간 기다리고, <code>while (1)</code>에 의해 이 동작을 계속 반복한다.</p>
+  <div class="flow-steps" aria-label="LED 점멸 흐름">
+    <div class="flow-step">LED 켜짐</div>
+    <div class="flow-step">1초 대기</div>
+    <div class="flow-step">LED 꺼짐</div>
+    <div class="flow-step">1초 대기</div>
+    <div class="flow-step">반복</div>
+  </div>
+  <p>LED 상태는 1초마다 바뀌며, 켜졌다가 다시 켜질 때까지의 전체 점멸 주기는 2초다.</p>
+
+  <h3>동작에 필요한 GPIO 초기화</h3>
+  <pre><code>MX_GPIO_Init();</code></pre>
+  <p>이 함수는 GPIOB의 클록을 활성화하고 PB5를 Push-Pull 출력 핀으로 설정한다. 또한 시작 시 LED가 꺼져 있도록 출력값을 <code>GPIO_PIN_RESET</code>으로 초기화한다.</p>
+
+  <h3>이번 구현에서 배운 점</h3>
+  <ul>
+    <li>STM32 펌웨어는 하드웨어를 초기화한 후 <code>while (1)</code>에서 원하는 동작을 반복한다.</li>
+    <li><code>PB5</code>는 GPIOB Port의 5번 Pin을 뜻한다.</li>
+    <li>GPIO Pin은 사용하기 전에 출력 모드로 초기화해야 한다.</li>
+    <li><code>HAL_GPIO_TogglePin()</code>은 현재 GPIO 출력 상태를 반전한다.</li>
+    <li><code>HAL_Delay()</code>를 사용하면 밀리초 단위의 간단한 점멸 간격을 만들 수 있다.</li>
+  </ul>
+  <p class="summary"><strong>PB5를 GPIO 출력으로 설정하고 출력 상태를 반전한 뒤 1초간 기다리도록 구현하여 초록색 LED를 점멸시켰다.</strong></p>
+
+  <h2 id="led-sequence">여러 GPIO 출력으로 LED 순차 점등하기</h2>
+
+  <h3>구현 목표</h3>
+  <p>초록색 <code>PB5</code>, 파란색 <code>PB4</code>, 노란색 <code>PB10</code>, 빨간색 <code>PA8</code> LED를 1초 간격으로 하나씩 순차 점등한다. 단일 LED 점멸과 같은 기본 출력 개념은 반복하지 않고 여러 Pin을 다루며 확장된 부분을 중심으로 정리한다.</p>
+
+  <h3>핵심 코드</h3>
+  <pre><code>while (1)
+{
+    LED_On(GREEN_LED_GPIO_Port, GREEN_LED_Pin);
+    HAL_Delay(1000);
+
+    LED_On(BLUE_LED_GPIO_Port, BLUE_LED_Pin);
+    HAL_Delay(1000);
+
+    LED_On(YELLOW_LED_GPIO_Port, YELLOW_LED_Pin);
+    HAL_Delay(1000);
+
+    LED_On(RED_LED_GPIO_Port, RED_LED_Pin);
+    HAL_Delay(1000);
+}</code></pre>
+  <pre><code>static void LED_AllOff(void)
+{
+    HAL_GPIO_WritePin(GPIOA, RED_LED_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB,
+                      YELLOW_LED_Pin | BLUE_LED_Pin | GREEN_LED_Pin,
+                      GPIO_PIN_RESET);
+}
+
+static void LED_On(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
+{
+    LED_AllOff();
+    HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_SET);
+}</code></pre>
+
+  <h3>핵심 변화</h3>
+  <p><code>LED_On()</code>은 모든 LED를 먼저 끈 다음 전달받은 GPIO 하나만 켠다. 이전 LED를 끄는 코드를 단계마다 반복하지 않으면서 항상 LED 하나만 켜진 상태를 유지한다.</p>
+  <p>GPIOA에 연결된 빨간색 LED와 GPIOB에 연결된 나머지 LED는 Port가 다르므로 <code>LED_AllOff()</code>에서 나누어 처리했다. 같은 Port의 여러 Pin은 비트 OR 연산자 <code>|</code>로 묶어 한 번에 제어할 수 있다.</p>
+
+  <h3>배운 점</h3>
+  <ul>
+    <li>Port와 Pin을 함수 인자로 전달하면 동일한 제어 코드를 여러 LED에 재사용할 수 있다.</li>
+    <li>서로 다른 GPIO Port의 Pin은 각각 별도로 제어해야 한다.</li>
+    <li>같은 Port의 여러 Pin은 <code>|</code>로 묶어 동시에 <code>RESET</code>할 수 있다.</li>
+    <li>공통 동작을 함수로 분리하면 반복 코드와 상태 제어 실수를 줄일 수 있다.</li>
+  </ul>
+  <p class="summary"><strong>모든 LED를 끄는 함수와 원하는 LED 하나만 켜는 함수를 분리하여 네 개의 GPIO 출력을 중복 없이 순차 제어했다.</strong></p>
+
+  <h2 id="button-debounce">GPIO 버튼 입력과 디바운싱</h2>
+
+  <h3>구현 목표</h3>
+  <p>PC13의 사용자 버튼을 <code>GPIO_MODE_INPUT</code>으로 설정하고 <code>HAL_GPIO_ReadPin()</code>으로 반복해서 읽는다. 버튼 접점의 바운스로 한 번의 입력이 여러 번 인식되는 것을 막기 위해 입력이 바뀐 뒤 50ms 동안 같은 값이 유지될 때만 확정 상태로 받아들인다.</p>
+  <p>확정된 버튼 눌림마다 LED 상태를 <code>IDLE → RUNNING → WARNING → ERROR → IDLE</code> 순서로 변경하고 각 상태에 해당하는 LED 하나만 켠다.</p>
+  <pre><code>#define USER_BUTTON_Pin GPIO_PIN_13
+#define USER_BUTTON_GPIO_Port GPIOC
+#define BUTTON_DEBOUNCE_MS 50U</code></pre>
+
+  <h3>입력 처리에 사용하는 값</h3>
+  <table>
+    <thead><tr><th>값</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td><code>buttonReading</code></td><td>이번 반복에서 읽은 PC13 입력값</td></tr>
+      <tr><td><code>lastButtonReading</code></td><td>직전 반복에서 읽은 입력값</td></tr>
+      <tr><td><code>stableButtonState</code></td><td>50ms 검사를 통과한 확정 입력값</td></tr>
+      <tr><td><code>lastDebounceTime</code></td><td>입력이 마지막으로 변한 시각</td></tr>
+    </tbody>
+  </table>
+  <pre><code>GPIO_PinState buttonReading =
+    HAL_GPIO_ReadPin(USER_BUTTON_GPIO_Port, USER_BUTTON_Pin);</code></pre>
+  <p>현재 보드에서 버튼을 놓으면 <code>GPIO_PIN_RESET</code>, 누르면 <code>GPIO_PIN_SET</code>으로 읽힌다.</p>
+
+  <h3>디바운싱 흐름</h3>
+  <pre><code>if (buttonReading != lastButtonReading)
+{
+    lastDebounceTime = HAL_GetTick();
+}
+
+if ((HAL_GetTick() - lastDebounceTime) &gt;= BUTTON_DEBOUNCE_MS)
+{
+    if (buttonReading != stableButtonState)
+    {
+        stableButtonState = buttonReading;
+
+        if (stableButtonState == GPIO_PIN_SET)
+        {
+            currentState =
+                (LED_State)((currentState + 1) % LED_STATE_COUNT);
+            LED_ShowState(currentState);
+        }
+    }
+}</code></pre>
+  <p>입력값이 직전 값과 달라지면 <code>HAL_GetTick()</code>으로 변화 시각을 다시 기록한다. 같은 입력이 50ms 이상 유지되면 확정 상태를 갱신한다. <code>HAL_Delay(50)</code>처럼 프로그램을 멈추지 않고 경과 시간만 비교하는 비차단 방식이다.</p>
+  <p>안정된 버튼 상태가 <code>GPIO_PIN_SET</code>으로 바뀌는 순간에만 상태를 전환한다. 버튼을 계속 누르는 동안에는 다시 처리되지 않으며, 버튼을 놓아 <code>RESET</code>이 확정된 뒤 다시 눌러야 다음 입력이 발생한다.</p>
+
+  <h3>버튼 입력과 LED 상태 연결</h3>
+  <p>프로그램 시작 시 <code>currentState</code>는 <code>LED_STATE_IDLE</code>이며, <code>LED_ShowState()</code>를 한 번 호출해 초록색 LED를 켠다.</p>
+  <pre><code>static LED_State currentState = LED_STATE_IDLE;
+
+LED_ShowState(currentState);</code></pre>
+  <p>버튼 눌림이 확정되면 현재 상태에 1을 더한다. <code>LED_STATE_COUNT</code>로 나머지 연산을 하기 때문에 마지막 <code>ERROR</code> 다음에는 다시 <code>IDLE</code>로 돌아간다.</p>
+  <table>
+    <thead><tr><th>상태</th><th>켜지는 LED</th><th>GPIO</th></tr></thead>
+    <tbody>
+      <tr><td><code>LED_STATE_IDLE</code></td><td>초록색</td><td>PB5</td></tr>
+      <tr><td><code>LED_STATE_RUNNING</code></td><td>파란색</td><td>PB4</td></tr>
+      <tr><td><code>LED_STATE_WARNING</code></td><td>노란색</td><td>PB10</td></tr>
+      <tr><td><code>LED_STATE_ERROR</code></td><td>빨간색</td><td>PA8</td></tr>
+    </tbody>
+  </table>
+  <p>각 상태에서는 <code>LED_On()</code>이 먼저 모든 LED를 끄므로 항상 상태에 해당하는 LED 하나만 켜진다.</p>
+
+  <h3>전체 동작 흐름</h3>
+  <div class="flow-steps" aria-label="버튼 디바운싱과 LED 상태 전환 흐름">
+    <div class="flow-step">PC13<br>입력 읽기</div>
+    <div class="flow-step">직전 입력과<br>비교</div>
+    <div class="flow-step">변화 시각<br>기록</div>
+    <div class="flow-step">50ms 유지<br>확인</div>
+    <div class="flow-step">확정 상태<br>갱신</div>
+    <div class="flow-step">다음 상태로<br>전환</div>
+    <div class="flow-step">해당 LED<br>켜기</div>
+  </div>
+  <p>위 흐름은 현재 소스 코드에 구현되어 있다. 실제 보드에서의 동작 확인 결과는 별도로 기록하지 않았다.</p>
+
+  <h3>배운 점</h3>
+  <ul>
+    <li>GPIO 입력값을 바로 사용하지 않고 일정 시간 유지됐는지 검사하면 버튼 바운스를 줄일 수 있다.</li>
+    <li><code>HAL_GetTick()</code>을 사용하면 <code>HAL_Delay()</code>로 반복문을 멈추지 않고 경과 시간을 검사할 수 있다.</li>
+    <li>확정 상태가 <code>SET</code>으로 바뀌는 순간만 처리하면 버튼을 길게 눌렀을 때 상태가 계속 바뀌는 것을 막을 수 있다.</li>
+    <li>버튼 입력 처리와 LED 출력 함수를 연결해 GPIO 입력에 따라 여러 GPIO 출력을 전환할 수 있다.</li>
+  </ul>
+  <p class="summary"><strong>버튼 입력이 50ms 동안 유지됐는지 확인하고 눌림 순간만 처리하여 바운스와 장시간 눌림에 의한 중복 입력을 방지했다.</strong></p>
+
+  <h3 id="summary">기본 개념 정리</h3>
+  <table>
+    <thead><tr><th>개념</th><th>설명</th></tr></thead>
+    <tbody>
+      <tr><td>GPIO</td><td>범용 입출력 핀</td></tr>
+      <tr><td>Input</td><td>외부에서 MCU로 들어오는 신호</td></tr>
+      <tr><td>Output</td><td>MCU에서 외부로 내보내는 신호</td></tr>
+      <tr><td>HIGH</td><td>논리 1, 높은 전압 상태</td></tr>
+      <tr><td>LOW</td><td>논리 0, 낮은 전압 상태</td></tr>
+      <tr><td>Pull-up</td><td>입력의 기본 상태를 HIGH로 유지</td></tr>
+      <tr><td>Pull-down</td><td>입력의 기본 상태를 LOW로 유지</td></tr>
+      <tr><td>Floating</td><td>입력값을 확정하기 어려운 상태</td></tr>
+    </tbody>
+  </table>
+  <p class="summary"><strong>GPIO는 MCU와 외부 장치를 연결하는 가장 기본적인 디지털 입출력 인터페이스다.</strong></p>
+
+  <h3>이후 학습 순서</h3>
+  <div class="flow-steps" aria-label="이후 학습 순서">
+    <div class="flow-step">GPIO</div>
+    <div class="flow-step">Interrupt</div>
+    <div class="flow-step">PWM</div>
+    <div class="flow-step">ADC</div>
+    <div class="flow-step">UART</div>
+    <div class="flow-step">I2C</div>
+    <div class="flow-step">SPI</div>
+  </div>
+    </article>
+  </main>
+</body>
+</html>
