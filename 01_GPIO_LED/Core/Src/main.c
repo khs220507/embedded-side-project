@@ -27,10 +27,21 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
+typedef enum
+{
+  LED_STATE_IDLE,
+  LED_STATE_RUNNING,
+  LED_STATE_WARNING,
+  LED_STATE_ERROR,
+  LED_STATE_COUNT
+} LED_State;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+#define BUTTON_DEBOUNCE_MS 50U
 
 /* USER CODE END PD */
 
@@ -45,6 +56,8 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
+static LED_State currentState = LED_STATE_IDLE;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -52,6 +65,10 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
+
+static void LED_AllOff(void);
+static void LED_On(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin);
+static void LED_ShowState(LED_State state);
 
 /* USER CODE END PFP */
 
@@ -68,6 +85,10 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+
+  GPIO_PinState lastButtonReading = GPIO_PIN_RESET;
+  GPIO_PinState stableButtonState = GPIO_PIN_RESET;
+  uint32_t lastDebounceTime = 0U;
 
   /* USER CODE END 1 */
 
@@ -94,17 +115,36 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  LED_ShowState(currentState);
+
   /* USER CODE END 2 */
 
   /* 초기화가 끝난 뒤 프로그램이 계속 실행되는 메인 반복 구간 */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* PB5 초록 LED의 현재 출력 상태를 반전한다. */
-    HAL_GPIO_TogglePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin);
+    GPIO_PinState buttonReading = HAL_GPIO_ReadPin(USER_BUTTON_GPIO_Port, USER_BUTTON_Pin);
 
-    /* 1초 동안 현재 상태를 유지한다. */
-    HAL_Delay(1000);
+    if (buttonReading != lastButtonReading)
+    {
+      lastDebounceTime = HAL_GetTick();
+    }
+
+    if ((HAL_GetTick() - lastDebounceTime) >= BUTTON_DEBOUNCE_MS)
+    {
+      if (buttonReading != stableButtonState)
+      {
+        stableButtonState = buttonReading;
+
+        if (stableButtonState == GPIO_PIN_SET)
+        {
+          currentState = (LED_State)((currentState + 1) % LED_STATE_COUNT);
+          LED_ShowState(currentState);
+        }
+      }
+    }
+
+    lastButtonReading = buttonReading;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -219,11 +259,11 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, YELLOW_LED_Pin|BLUE_LED_Pin|GREEN_LED_Pin, GPIO_PIN_RESET);
 
-  /* PC13 사용자 버튼: LOW에서 HIGH로 바뀌는 순간 인터럽트 발생 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  /* PC13 사용자 버튼을 폴링 입력으로 사용한다. */
+  GPIO_InitStruct.Pin = USER_BUTTON_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  HAL_GPIO_Init(USER_BUTTON_GPIO_Port, &GPIO_InitStruct);
 
   /* PA5(LD2), PA8(빨간 LED): 푸시풀 출력, 내부 풀업/풀다운 없음 */
   GPIO_InitStruct.Pin = LD2_Pin|RED_LED_Pin;
@@ -245,6 +285,44 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+static void LED_AllOff(void)
+{
+  HAL_GPIO_WritePin(GPIOA, RED_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, YELLOW_LED_Pin|BLUE_LED_Pin|GREEN_LED_Pin, GPIO_PIN_RESET);
+}
+
+static void LED_On(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
+{
+  LED_AllOff();
+  HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_SET);
+}
+
+static void LED_ShowState(LED_State state)
+{
+  switch (state)
+  {
+    case LED_STATE_IDLE:
+      LED_On(GREEN_LED_GPIO_Port, GREEN_LED_Pin);
+      break;
+
+    case LED_STATE_RUNNING:
+      LED_On(BLUE_LED_GPIO_Port, BLUE_LED_Pin);
+      break;
+
+    case LED_STATE_WARNING:
+      LED_On(YELLOW_LED_GPIO_Port, YELLOW_LED_Pin);
+      break;
+
+    case LED_STATE_ERROR:
+      LED_On(RED_LED_GPIO_Port, RED_LED_Pin);
+      break;
+
+    default:
+      LED_AllOff();
+      break;
+  }
+}
 
 /* USER CODE END 4 */
 
