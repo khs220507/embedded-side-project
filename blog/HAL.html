@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 HAL: GPIO와 UART 제어</title>
+  <style>
+    :root{--text:#222;--muted:#666;--line:#e5e5e5;--primary:#2563eb;--soft:#f6f8fa}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--text);background:#fff;font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;word-break:keep-all}.hero{padding:56px 24px 36px;border-bottom:1px solid var(--line)}.hero-inner,main{width:min(820px,calc(100% - 40px));margin:0 auto}.eyebrow{margin:0 0 6px;color:var(--primary);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}h1{margin:0;font-size:clamp(34px,6vw,46px);line-height:1.2;letter-spacing:-.035em}.hero-description{max-width:650px;margin:12px 0 0;color:var(--muted)}main{padding:32px 0 72px}.toc{display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:44px;padding-bottom:24px;border-bottom:1px solid var(--line)}.toc a{color:var(--muted);font-size:14px;text-decoration:none}.toc a:hover{color:var(--primary)}h2,h3{scroll-margin-top:24px;line-height:1.35;letter-spacing:-.025em}h2{margin:0 0 18px;font-size:28px}h2:not(:first-child){margin-top:64px;padding-top:48px;border-top:1px solid var(--line)}h3{margin:38px 0 12px;font-size:20px}p{margin:12px 0}code{padding:2px 5px;border-radius:4px;color:#1d4ed8;background:#eef3ff;font-family:Consolas,"Courier New",monospace;font-size:.92em}pre{overflow-x:auto;margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:6px;color:#24292f;background:var(--soft);line-height:1.6}pre code{padding:0;color:inherit;background:transparent;font-size:14px}.flow-steps{display:flex;align-items:stretch;margin:20px 0;overflow-x:auto}.flow-step{display:flex;min-width:145px;flex:1;align-items:center;justify-content:center;padding:12px;border:1px solid var(--line);background:#fff;font-size:14px;font-weight:650;text-align:center}.flow-step+.flow-step{border-left:0}.flow-step:first-child{border-radius:6px 0 0 6px}.flow-step:last-child{border-radius:0 6px 6px 0}table{width:100%;margin:16px 0;border:1px solid var(--line);border-collapse:collapse;table-layout:fixed}th,td{padding:10px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:var(--soft);font-size:14px}ul{padding-left:24px}.summary{margin-top:24px;padding:14px 16px;border-left:3px solid var(--primary);background:var(--soft)}@media(max-width:700px){.hero{padding:40px 20px 28px}.hero-inner,main{width:min(100% - 28px,820px)}main{padding-top:24px}.toc{gap:7px 14px;margin-bottom:36px}h2{font-size:25px}h3{font-size:19px}table{font-size:14px}th,td{padding:8px 10px}}
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 HAL: GPIO와 UART 제어</h1><p class="hero-description">HAL의 역할부터 Handle, 초기화, 동작 함수와 반환값까지 정리한다.</p></div></header>
+  <main>
+    <nav class="toc" aria-label="문서 목차"><a href="#definition">HAL이란?</a><a href="#reason">사용 이유</a><a href="#location">드라이버 위치</a><a href="#handle">Handle</a><a href="#functions">함수 구분</a><a href="#status">반환값</a><a href="#register">레지스터 관계</a><a href="#summary">정리</a></nav>
+    <article>
+      <h2 id="definition">HAL이란?</h2>
+      <p>HAL은 <code>Hardware Abstraction Layer</code>의 약자로, <strong>하드웨어 추상화 계층</strong>을 의미한다. STM32의 레지스터를 직접 조작하지 않고도 주변장치를 제어할 수 있도록 STMicroelectronics가 제공하는 드라이버 함수 모음이다.</p>
+      <div class="flow-steps"><div class="flow-step">사용자 코드</div><div class="flow-step">STM32 HAL 함수</div><div class="flow-step">MCU 레지스터</div><div class="flow-step">실제 하드웨어</div></div>
+      <table><thead><tr><th>함수</th><th>역할</th></tr></thead><tbody><tr><td><code>HAL_Init()</code></td><td>HAL과 1ms SysTick 기본 초기화</td></tr><tr><td><code>HAL_GPIO_WritePin()</code></td><td>GPIO 출력값 변경</td></tr><tr><td><code>HAL_GPIO_ReadPin()</code></td><td>GPIO 입력값 읽기</td></tr><tr><td><code>HAL_GetTick()</code></td><td>시스템 시작 후 경과 시간 확인</td></tr><tr><td><code>HAL_UART_Init()</code></td><td>UART 설정을 주변장치에 적용</td></tr><tr><td><code>HAL_UART_Transmit()</code></td><td>UART 데이터 송신</td></tr></tbody></table>
+
+      <h2 id="reason">HAL을 사용하는 이유</h2>
+      <p>레지스터를 직접 제어하면 주변장치마다 주소와 bit 위치를 계산해야 한다. HAL은 이 작업을 함수와 구조체로 감싸 의미 있는 이름으로 하드웨어를 제어하게 해준다.</p>
+      <pre><code>HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);</code></pre>
+      <div class="flow-steps"><div class="flow-step">HAL 함수 호출</div><div class="flow-step">GPIOB 레지스터 제어</div><div class="flow-step">PB5 HIGH</div><div class="flow-step">LED 켜짐</div></div>
+      <ul><li>함수 이름으로 코드의 목적을 파악하기 쉽다.</li><li>레지스터 주소와 bit 계산을 반복하지 않아도 된다.</li><li>GPIO, UART, Timer 등을 일관된 구조로 사용할 수 있다.</li><li>정해진 상태값으로 동작 결과를 확인할 수 있다.</li></ul>
+      <p>HAL을 사용하더라도 Pin 설정, 통신 속도, 데이터 길이 같은 하드웨어 조건은 개발자가 정확히 지정해야 한다.</p>
+
+      <h2 id="location">HAL 드라이버의 위치</h2>
+      <pre><code>01_GPIO_LED/
+└── Drivers/
+    └── STM32F4xx_HAL_Driver/
+        ├── Inc/
+        └── Src/</code></pre>
+      <ul><li><code>Inc/</code>: 함수 원형, 자료형, 상수 정의가 있는 Header 파일</li><li><code>Src/</code>: HAL 함수의 실제 동작 코드가 있는 Source 파일</li></ul>
+      <p>UART 송신 함수는 <code>Inc/stm32f4xx_hal_uart.h</code>와 <code>Src/stm32f4xx_hal_uart.c</code>에서 확인할 수 있다.</p>
+      <pre><code>HAL_StatusTypeDef HAL_UART_Transmit(
+    UART_HandleTypeDef *huart,
+    const uint8_t *pData,
+    uint16_t Size,
+    uint32_t Timeout
+);</code></pre>
+
+      <h2 id="handle">Handle 구조체</h2>
+      <p>HAL은 주변장치의 설정과 현재 상태를 <code>Handle</code> 구조체로 관리한다.</p>
+      <pre><code>UART_HandleTypeDef huart2;
+
+huart2.Instance = USART2;
+huart2.Init.BaudRate = 115200;
+huart2.Init.WordLength = UART_WORDLENGTH_8B;
+huart2.Init.StopBits = UART_STOPBITS_1;
+huart2.Init.Parity = UART_PARITY_NONE;
+huart2.Init.Mode = UART_MODE_TX_RX;</code></pre>
+      <pre><code>HAL_UART_Transmit(&amp;huart2,
+                  message,
+                  sizeof(message) - 1U,
+                  HAL_MAX_DELAY);</code></pre>
+      <p><code>&amp;huart2</code>를 통해 HAL은 USART2의 설정과 현재 동작 상태를 확인하고 갱신할 수 있다.</p>
+
+      <h2 id="functions">초기화 함수와 동작 함수</h2>
+      <h3>초기화 함수</h3>
+      <pre><code>HAL_Init();
+MX_GPIO_Init();
+MX_USART2_UART_Init();</code></pre>
+      <p><code>MX_GPIO_Init()</code>과 <code>MX_USART2_UART_Init()</code>은 STM32CubeMX가 생성한 초기화 함수다. 내부에서 설정 구조체와 Handle을 준비한 뒤 <code>HAL_GPIO_Init()</code>, <code>HAL_UART_Init()</code> 같은 HAL 함수를 호출한다.</p>
+      <h3>동작 함수</h3>
+      <pre><code>HAL_GPIO_ReadPin(USER_BUTTON_GPIO_Port, USER_BUTTON_Pin);
+HAL_GPIO_WritePin(GPIOB, GREEN_LED_Pin, GPIO_PIN_SET);
+HAL_UART_Transmit(&amp;huart2, message,
+                  sizeof(message) - 1U,
+                  HAL_MAX_DELAY);</code></pre>
+      <div class="flow-steps"><div class="flow-step">HAL_Init()</div><div class="flow-step">GPIO 초기화</div><div class="flow-step">USART2 초기화</div><div class="flow-step">UART 송신</div></div>
+
+      <h2 id="status">HAL 함수의 반환값</h2>
+      <p>여러 HAL 함수는 HAL 드라이버에 미리 정의된 <code>HAL_StatusTypeDef</code>로 실행 결과를 반환한다. <code>HAL_OK</code> 역시 사용자가 만든 값이 아니라 HAL에서 제공하는 상태값이다.</p>
+      <pre><code>typedef enum
+{
+    HAL_OK      = 0x00U,
+    HAL_ERROR   = 0x01U,
+    HAL_BUSY    = 0x02U,
+    HAL_TIMEOUT = 0x03U
+} HAL_StatusTypeDef;</code></pre>
+      <table><thead><tr><th>반환값</th><th>의미</th></tr></thead><tbody><tr><td><code>HAL_OK</code></td><td>정상 완료</td></tr><tr><td><code>HAL_ERROR</code></td><td>동작 중 오류 발생</td></tr><tr><td><code>HAL_BUSY</code></td><td>주변장치가 다른 작업 수행 중</td></tr><tr><td><code>HAL_TIMEOUT</code></td><td>제한 시간 안에 완료되지 않음</td></tr></tbody></table>
+      <p>현재 UART 수신 코드에서는 <code>HAL_UART_Receive()</code>의 반환값을 바로 검사한다.</p>
+      <pre><code>if (HAL_UART_Receive(&amp;huart2, &amp;receivedByte, 1U, 0U) == HAL_OK)
+{
+    UART_HandleCommand(receivedByte);
+}</code></pre>
+      <p>문자 1바이트를 정상적으로 받으면 <code>HAL_OK</code>가 반환되어 명령 처리 함수를 호출한다. Timeout이 <code>0U</code>이므로 수신 데이터가 없을 때는 기다리지 않고 <code>HAL_TIMEOUT</code>으로 돌아가며 조건문 내부를 실행하지 않는다.</p>
+
+      <h2 id="register">HAL과 직접 레지스터 제어의 관계</h2>
+      <p>HAL과 직접 레지스터 제어는 서로 다른 하드웨어를 사용하는 방식이 아니다. HAL 함수도 최종적으로 같은 STM32 레지스터를 읽고 쓴다.</p>
+      <table><thead><tr><th>방식</th><th>흐름</th></tr></thead><tbody><tr><td>HAL 사용</td><td>함수 호출 → HAL 내부 코드 → 레지스터</td></tr><tr><td>직접 제어</td><td>사용자 코드 → 레지스터</td></tr></tbody></table>
+      <p>현재 단계에서는 HAL로 GPIO와 UART의 동작 흐름을 먼저 익히고, 직접 레지스터 제어는 내부 구조를 더 깊게 학습할 때 다룬다.</p>
+
+      <h2 id="summary">배운 점</h2>
+      <ul><li>HAL은 STM32 주변장치를 함수와 구조체로 제어하게 해주는 하드웨어 추상화 계층이다.</li><li>HAL 함수 내부에서도 최종적으로 MCU 레지스터를 읽거나 쓴다.</li><li>주변장치 설정과 상태는 <code>Handle</code> 구조체에 저장한다.</li><li>주변장치를 초기화한 다음 HAL 동작 함수를 호출해야 한다.</li><li>여러 HAL 함수는 정해진 상태값으로 결과를 반환한다.</li></ul>
+      <h3>한 줄 정리</h3>
+      <p class="summary"><strong>STM32 HAL은 레지스터 제어를 함수와 구조체로 감싸 GPIO와 UART 같은 하드웨어를 일관된 방식으로 사용할 수 있게 해주는 드라이버 계층이다.</strong></p>
+    </article>
+  </main>
+</body>
+</html>

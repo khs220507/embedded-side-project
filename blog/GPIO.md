@@ -164,6 +164,19 @@ else
 
 GPIO는 MCU와 외부 장치를 연결하는 가장 기본적인 디지털 입출력 인터페이스다.
 
+### 실제 구성한 GPIO 회로
+
+![NUCLEO-F401RE GPIO LED 회로도](assets/GPIO_circuit.svg)
+
+| NUCLEO 핀 | STM32 GPIO | 연결 | 동작 |
+|---|---|---|---|
+| D4 | PB5 | 220Ω → 초록 LED → GND | `HIGH`에서 켜짐 |
+| D5 | PB4 | 220Ω → 파랑 LED → GND | `HIGH`에서 켜짐 |
+| D6 | PB10 | 220Ω → 노랑 LED → GND | `HIGH`에서 켜짐 |
+| D7 | PA8 | 220Ω → 빨강 LED → GND | `HIGH`에서 켜짐 |
+
+네 LED의 캐소드는 브레드보드의 공통 GND 레일에 연결하고, NUCLEO의 GND도 같은 레일에 연결한다. USER 버튼 B1(PC13)은 보드에 내장되어 있으므로 추가 배선하지 않는다.
+
 ### 이후 학습 순서
 
 ```text

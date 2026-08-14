@@ -84,6 +84,9 @@
     ul { margin: 12px 0; padding-left: 24px; }
     li { margin: 6px 0; }
     .summary { margin-top: 24px; padding: 14px 16px; border-left: 3px solid var(--primary); background: var(--soft); }
+    .circuit-figure { margin: 20px 0; }
+    .circuit-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+    .circuit-figure figcaption { margin-top: 8px; color: var(--muted); font-size: 14px; text-align: center; }
 
     @media (max-width: 700px) {
       .hero { padding: 40px 20px 28px; }
@@ -118,6 +121,7 @@
       <a href="#signal">HIGH / LOW</a>
       <a href="#port-pin">Port와 Pin</a>
       <a href="#pull">Pull 저항</a>
+      <a href="#circuit">회로도</a>
       <a href="#led-blink">LED 점멸</a>
       <a href="#led-sequence">LED 순차 점등</a>
       <a href="#button-debounce">버튼·Debounce</a>
@@ -263,6 +267,22 @@ else
     <div class="flow-step">3. 출력 제어</div>
   </div>
   <p>위 코드는 GPIO의 기본 관계를 보여 주는 예시다. 현재 프로젝트에서는 여기에 50ms 디바운싱과 LED 상태 전환을 추가해 구현했다.</p>
+
+  <h3 id="circuit">실제 구성한 GPIO 회로</h3>
+  <figure class="circuit-figure">
+    <img src="assets/GPIO_circuit.svg" alt="NUCLEO-F401RE GPIO LED 회로도">
+    <figcaption>각 GPIO에서 220Ω 저항과 LED를 거쳐 공통 GND로 연결한다.</figcaption>
+  </figure>
+  <table>
+    <thead><tr><th>NUCLEO 핀</th><th>STM32 GPIO</th><th>연결</th><th>동작</th></tr></thead>
+    <tbody>
+      <tr><td>D4</td><td>PB5</td><td>220Ω → 초록 LED → GND</td><td><code>HIGH</code>에서 켜짐</td></tr>
+      <tr><td>D5</td><td>PB4</td><td>220Ω → 파랑 LED → GND</td><td><code>HIGH</code>에서 켜짐</td></tr>
+      <tr><td>D6</td><td>PB10</td><td>220Ω → 노랑 LED → GND</td><td><code>HIGH</code>에서 켜짐</td></tr>
+      <tr><td>D7</td><td>PA8</td><td>220Ω → 빨강 LED → GND</td><td><code>HIGH</code>에서 켜짐</td></tr>
+    </tbody>
+  </table>
+  <p>네 LED의 캐소드는 공통 GND 레일에 연결한다. USER 버튼 B1(PC13)은 보드에 내장되어 있으므로 추가 배선하지 않는다.</p>
 
   <h2 id="led-blink">GPIO 출력으로 LED 점멸하기</h2>
 

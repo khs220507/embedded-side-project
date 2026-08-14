@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="620" viewBox="0 0 1100 620" role="img" aria-labelledby="title desc">
+  <title id="title">NUCLEO-F401RE GPIO LED 회로도</title>
+  <desc id="desc">D4 PB5, D5 PB4, D6 PB10, D7 PA8에서 각각 220옴 저항과 LED를 거쳐 공통 GND에 연결한 회로</desc>
+  <style>
+    .wire{fill:none;stroke:#334155;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.board{fill:#f8fafc;stroke:#334155;stroke-width:2}.pin{fill:#eff6ff;stroke:#2563eb;stroke-width:2}.title{fill:#0f172a;font:700 28px system-ui,sans-serif}.label{fill:#1e293b;font:600 18px system-ui,sans-serif}.small{fill:#475569;font:15px system-ui,sans-serif}.led{stroke-width:2}.ground{fill:none;stroke:#0f172a;stroke-width:3}
+  </style>
+  <rect width="1100" height="620" fill="#fff"/>
+  <text x="550" y="44" text-anchor="middle" class="title">NUCLEO-F401RE GPIO LED 회로</text>
+  <text x="550" y="70" text-anchor="middle" class="small">GPIO HIGH → LED ON · 각 LED에 220Ω 직렬 저항 사용</text>
+
+  <rect x="55" y="105" width="260" height="425" rx="14" class="board"/>
+  <text x="185" y="143" text-anchor="middle" class="label">NUCLEO-F401RE</text>
+  <text x="185" y="167" text-anchor="middle" class="small">STM32F401RE</text>
+  <rect x="92" y="198" width="116" height="58" rx="8" class="board"/>
+  <text x="150" y="222" text-anchor="middle" class="label">USER B1</text>
+  <text x="150" y="244" text-anchor="middle" class="small">PC13 · 내장</text>
+
+  <g class="label" text-anchor="middle">
+    <rect x="245" y="190" width="110" height="42" rx="6" class="pin"/><text x="300" y="217">D4 · PB5</text>
+    <rect x="245" y="270" width="110" height="42" rx="6" class="pin"/><text x="300" y="297">D5 · PB4</text>
+    <rect x="245" y="350" width="110" height="42" rx="6" class="pin"/><text x="300" y="377">D6 · PB10</text>
+    <rect x="245" y="430" width="110" height="42" rx="6" class="pin"/><text x="300" y="457">D7 · PA8</text>
+    <rect x="245" y="490" width="110" height="34" rx="6" class="board"/><text x="300" y="514">GND</text>
+  </g>
+
+  <g class="wire">
+    <path d="M355 211H405l10-12 18 24 18-24 18 24 18-24 10 12H565M615 211H900"/>
+    <path d="M355 291H405l10-12 18 24 18-24 18 24 18-24 10 12H565M615 291H900"/>
+    <path d="M355 371H405l10-12 18 24 18-24 18 24 18-24 10 12H565M615 371H900"/>
+    <path d="M355 451H405l10-12 18 24 18-24 18 24 18-24 10 12H565M615 451H900"/>
+    <path d="M900 211V507H355"/>
+  </g>
+
+  <g class="small" text-anchor="middle">
+    <text x="451" y="187">220Ω</text><text x="451" y="267">220Ω</text><text x="451" y="347">220Ω</text><text x="451" y="427">220Ω</text>
+  </g>
+  <circle cx="590" cy="211" r="25" fill="#22c55e" stroke="#166534" class="led"/>
+  <circle cx="590" cy="291" r="25" fill="#3b82f6" stroke="#1e40af" class="led"/>
+  <circle cx="590" cy="371" r="25" fill="#facc15" stroke="#a16207" class="led"/>
+  <circle cx="590" cy="451" r="25" fill="#ef4444" stroke="#991b1b" class="led"/>
+  <g fill="#fff" font-family="system-ui" font-size="14" font-weight="700" text-anchor="middle">
+    <text x="590" y="217">LED</text><text x="590" y="297">LED</text><text x="590" y="457">LED</text>
+  </g>
+  <text x="590" y="377" fill="#713f12" font-family="system-ui" font-size="14" font-weight="700" text-anchor="middle">LED</text>
+  <g class="small"><text x="650" y="196">초록 · Anode → Cathode</text><text x="650" y="276">파랑 · Anode → Cathode</text><text x="650" y="356">노랑 · Anode → Cathode</text><text x="650" y="436">빨강 · Anode → Cathode</text></g>
+
+  <g fill="#334155"><circle cx="900" cy="211" r="5"/><circle cx="900" cy="291" r="5"/><circle cx="900" cy="371" r="5"/><circle cx="900" cy="451" r="5"/></g>
+  <path d="M900 507v35m-35 0h70m-60 10h50m-39 10h28" class="ground"/>
+  <text x="940" y="514" class="label">공통 GND</text>
+  <text x="55" y="592" class="small">※ B1(PC13)은 NUCLEO 보드 내부에 연결되어 있어 브레드보드 추가 배선이 필요하지 않다.</text>
+</svg>

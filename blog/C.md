@@ -230,3 +230,140 @@ switch (state)
 ### 한 줄 정리
 
 `enum`으로 상태의 의미와 개수를 정의하고 `switch`로 상태별 동작을 분리하여 버튼 기반 LED 상태 머신을 구성했다.
+
+---
+
+## `uint8_t`, `uint16_t`, `uint32_t` 고정 폭 정수형
+
+### 구현 목표
+
+UART로 전송할 문자열, GPIO Pin 값, 버튼 디바운싱 시간을 저장하면서 데이터의 용도에 맞는 크기의 정수 자료형을 사용한다.
+
+### 핵심 코드
+
+현재 코드에서는 다음 세 가지 자료형을 사용한다.
+
+```c
+uint8_t message[] = "Hello STM32!\r\n";
+
+static void LED_On(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin);
+
+uint32_t lastDebounceTime = 0U;
+```
+
+### 고정 폭 정수형이란?
+
+`uint8_t`, `uint16_t`, `uint32_t`는 C 표준 헤더인 `stdint.h`에 정의된 정수 자료형이다. 이름에 자료형의 성격과 bit 수가 포함되어 있다.
+
+```text
+u    → unsigned, 음수 없음
+int  → integer, 정수
+8    → 8bit
+_t   → type, 자료형 이름
+```
+
+따라서 `uint8_t`는 **음수가 없는 8bit 정수 자료형**을 의미한다.
+
+| 자료형 | 크기 | 표현 범위 | 현재 코드의 용도 |
+|---|---:|---:|---|
+| `uint8_t` | 1byte | 0 ~ 255 | UART로 전송할 byte 배열 |
+| `uint16_t` | 2byte | 0 ~ 65,535 | GPIO Pin 선택 bit 값 |
+| `uint32_t` | 4byte | 0 ~ 4,294,967,295 | `HAL_GetTick()`의 밀리초 시간 |
+
+일반적인 `int`나 `unsigned int`는 컴파일 환경에 따라 크기가 달라질 수 있다. 고정 폭 정수형은 크기가 이름에 명확히 나타나므로 레지스터, 통신 데이터, 시간값처럼 데이터 크기가 중요한 임베디드 코드에서 자주 사용한다.
+
+### UART 데이터에 `uint8_t`를 사용하는 이유
+
+```c
+uint8_t message[] = "Hello STM32!\r\n";
+```
+
+UART는 데이터를 byte 단위로 전송한다. `uint8_t` 하나의 크기는 1byte이므로 문자 데이터를 순서대로 저장하고 전송하기에 적합하다.
+
+`message`는 배열이지만 함수 인자로 전달될 때 첫 번째 원소의 주소로 사용된다.
+
+```c
+HAL_UART_Transmit(&huart2,
+                  message,
+                  sizeof(message) - 1U,
+                  HAL_MAX_DELAY);
+```
+
+현재 HAL의 `HAL_UART_Transmit()`도 전송 데이터의 주소를 다음 형식으로 받는다.
+
+```c
+const uint8_t *pData
+```
+
+### GPIO Pin 값에 `uint16_t`를 사용하는 이유
+
+```c
+static void LED_On(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin);
+```
+
+STM32 GPIO Port 하나에는 Pin 0부터 Pin 15까지 총 16개의 Pin이 있다. HAL은 각 Pin을 16bit 안의 서로 다른 bit로 표현하므로 GPIO Pin 값에는 `uint16_t`를 사용한다.
+
+```text
+GPIO_PIN_0  → 0000 0000 0000 0001
+GPIO_PIN_5  → 0000 0000 0010 0000
+GPIO_PIN_15 → 1000 0000 0000 0000
+```
+
+같은 Port의 여러 Pin을 `|`로 묶을 수 있는 것도 각각의 Pin이 서로 다른 bit를 사용하기 때문이다.
+
+### 시간값에 `uint32_t`를 사용하는 이유
+
+```c
+uint32_t lastDebounceTime = 0U;
+```
+
+`HAL_GetTick()`은 시스템 시작 후 흐른 시간을 밀리초 단위의 `uint32_t` 값으로 반환한다. 따라서 이전 시각을 저장하는 `lastDebounceTime`도 같은 `uint32_t`로 선언했다.
+
+```c
+if ((HAL_GetTick() - lastDebounceTime) >= BUTTON_DEBOUNCE_MS)
+```
+
+두 값의 자료형을 맞추면 시간 차이를 같은 범위 안에서 계산할 수 있다.
+
+### 숫자 뒤의 `U`
+
+```c
+uint32_t lastDebounceTime = 0U;
+sizeof(message) - 1U
+```
+
+숫자 뒤의 `U`는 해당 정수 상수를 `unsigned int`로 취급하라는 접미사다.
+
+```c
+0   /* int */
+0U  /* unsigned int */
+```
+
+현재 코드처럼 음수가 없는 값과 계산할 때 `U`를 붙이면 signed 정수와 unsigned 정수가 섞이는 상황을 줄이고, 값이 음수가 될 의도가 없다는 점을 코드에 나타낼 수 있다.
+
+### `sizeof(message) - 1U`의 의미
+
+```c
+uint8_t message[] = "Hello STM32!\r\n";
+```
+
+C 문자열 배열의 마지막에는 문자열의 끝을 나타내는 null 문자 `\0`이 자동으로 들어간다. `sizeof(message)`는 이 null 문자까지 포함한 배열 전체 크기를 byte 단위로 계산한다.
+
+UART로 화면에 표시할 문자만 보내기 위해 마지막 `\0` 한 byte를 제외한다.
+
+```c
+sizeof(message) - 1U
+```
+
+### 배운 점
+
+- `uint8_t`, `uint16_t`, `uint32_t`는 크기가 명확한 unsigned 정수 자료형이다.
+- UART 데이터처럼 byte 단위인 값에는 `uint8_t`가 적합하다.
+- GPIO Pin bit 값에는 16bit인 `uint16_t`를 사용한다.
+- `HAL_GetTick()`의 반환값과 시간 저장 변수에는 `uint32_t`를 사용한다.
+- 숫자 뒤의 `U`는 unsigned 정수 상수를 의미한다.
+- `sizeof()`는 배열 전체의 byte 크기를 계산하며 문자열 배열에서는 `\0`도 포함한다.
+
+### 한 줄 정리
+
+임베디드 코드에서는 데이터의 실제 크기와 용도를 명확히 하기 위해 `uint8_t`, `uint16_t`, `uint32_t` 같은 고정 폭 정수형을 사용한다.
