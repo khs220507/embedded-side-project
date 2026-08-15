@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 HAL: GPIO, UART, DMA와 ADC 제어</title>
+  <style>
+    :root{--text:#222;--muted:#666;--line:#e5e5e5;--primary:#2563eb;--soft:#f6f8fa}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--text);background:#fff;font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;word-break:keep-all}.hero{padding:56px 24px 36px;border-bottom:1px solid var(--line)}.hero-inner,main{width:min(820px,calc(100% - 40px));margin:0 auto}.eyebrow{margin:0 0 6px;color:var(--primary);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}h1{margin:0;font-size:clamp(34px,6vw,46px);line-height:1.2;letter-spacing:-.035em}.hero-description{max-width:650px;margin:12px 0 0;color:var(--muted)}main{padding:32px 0 72px}.toc{display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:44px;padding-bottom:24px;border-bottom:1px solid var(--line)}.toc a{color:var(--muted);font-size:14px;text-decoration:none}.toc a:hover{color:var(--primary)}h2,h3{scroll-margin-top:24px;line-height:1.35;letter-spacing:-.025em}h2{margin:0 0 18px;font-size:28px}h2:not(:first-child){margin-top:64px;padding-top:48px;border-top:1px solid var(--line)}h3{margin:38px 0 12px;font-size:20px}p{margin:12px 0}code{padding:2px 5px;border-radius:4px;color:#1d4ed8;background:#eef3ff;font-family:Consolas,"Courier New",monospace;font-size:.92em}pre{overflow-x:auto;margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:6px;color:#24292f;background:var(--soft);line-height:1.6}pre code{padding:0;color:inherit;background:transparent;font-size:14px}.flow-steps{display:flex;align-items:stretch;margin:20px 0;overflow-x:auto}.flow-step{display:flex;min-width:145px;flex:1;align-items:center;justify-content:center;padding:12px;border:1px solid var(--line);background:#fff;font-size:14px;font-weight:650;text-align:center}.flow-step+.flow-step{border-left:0}.flow-step:first-child{border-radius:6px 0 0 6px}.flow-step:last-child{border-radius:0 6px 6px 0}table{width:100%;margin:16px 0;border:1px solid var(--line);border-collapse:collapse;table-layout:fixed}th,td{padding:10px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:var(--soft);font-size:14px}ul{padding-left:24px}.summary{margin-top:24px;padding:14px 16px;border-left:3px solid var(--primary);background:var(--soft)}@media(max-width:700px){.hero{padding:40px 20px 28px}.hero-inner,main{width:min(100% - 28px,820px)}main{padding-top:24px}.toc{gap:7px 14px;margin-bottom:36px}h2{font-size:25px}h3{font-size:19px}table{font-size:14px}th,td{padding:8px 10px}}
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 HAL: GPIO, UART, DMA와 ADC 제어</h1><p class="hero-description">HAL의 기본 구조와 현재 코드에서 사용한 GPIO, UART, DMA, ADC API를 정리한다.</p></div></header>
+  <main>
+    <nav class="toc" aria-label="문서 목차"><a href="#definition">HAL이란?</a><a href="#reason">사용 이유</a><a href="#location">드라이버 위치</a><a href="#handle">Handle</a><a href="#functions">함수 구분</a><a href="#status">반환값</a><a href="#dma">UART DMA HAL</a><a href="#adc">ADC HAL</a><a href="#register">레지스터 관계</a><a href="#summary">정리</a></nav>
+    <article>
+      <h2 id="definition">HAL이란?</h2>
+      <p>HAL은 <code>Hardware Abstraction Layer</code>의 약자로, <strong>하드웨어 추상화 계층</strong>을 의미한다. STM32의 레지스터를 직접 조작하지 않고도 주변장치를 제어할 수 있도록 STMicroelectronics가 제공하는 드라이버 함수 모음이다.</p>
+      <div class="flow-steps"><div class="flow-step">사용자 코드</div><div class="flow-step">STM32 HAL 함수</div><div class="flow-step">MCU 레지스터</div><div class="flow-step">실제 하드웨어</div></div>
+      <table><thead><tr><th>함수</th><th>역할</th></tr></thead><tbody><tr><td><code>HAL_Init()</code></td><td>HAL과 1ms SysTick 기본 초기화</td></tr><tr><td><code>HAL_GPIO_WritePin()</code></td><td>GPIO 출력값 변경</td></tr><tr><td><code>HAL_GPIO_ReadPin()</code></td><td>GPIO 입력값 읽기</td></tr><tr><td><code>HAL_GetTick()</code></td><td>시스템 시작 후 경과 시간 확인</td></tr><tr><td><code>HAL_UART_Init()</code></td><td>UART 설정을 주변장치에 적용</td></tr><tr><td><code>HAL_UART_Transmit()</code></td><td>UART Polling 송신</td></tr><tr><td><code>HAL_UART_Receive_IT()</code></td><td>UART Interrupt 수신 시작</td></tr><tr><td><code>HAL_DMA_Init()</code></td><td>DMA 설정 적용</td></tr><tr><td><code>HAL_UART_Transmit_DMA()</code></td><td>UART DMA 송신 시작</td></tr><tr><td><code>HAL_UARTEx_ReceiveToIdle_DMA()</code></td><td>IDLE 감지를 포함한 DMA 수신 시작</td></tr><tr><td><code>HAL_NVIC_SetPriority()</code></td><td>Peripheral IRQ 우선순위 설정</td></tr><tr><td><code>HAL_NVIC_EnableIRQ()</code></td><td>NVIC에서 Peripheral IRQ 활성화</td></tr><tr><td><code>HAL_UART_IRQHandler()</code></td><td>UART IRQ 원인을 HAL 처리로 전달</td></tr><tr><td><code>HAL_ADC_Init()</code></td><td>ADC 설정을 ADC1에 적용</td></tr><tr><td><code>HAL_ADC_ConfigChannel()</code></td><td>Channel, Rank와 Sampling Time 설정</td></tr><tr><td><code>HAL_ADC_Start()</code></td><td>ADC 변환 시작</td></tr><tr><td><code>HAL_ADC_PollForConversion()</code></td><td>ADC 변환 완료 대기</td></tr><tr><td><code>HAL_ADC_GetValue()</code></td><td>완료된 변환값 읽기</td></tr><tr><td><code>HAL_ADC_Stop()</code></td><td>ADC 변환 정지</td></tr></tbody></table>
+
+      <h2 id="reason">HAL을 사용하는 이유</h2>
+      <p>레지스터를 직접 제어하면 주변장치마다 주소와 bit 위치를 계산해야 한다. HAL은 이 작업을 함수와 구조체로 감싸 의미 있는 이름으로 하드웨어를 제어하게 해준다.</p>
+      <pre><code>HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);</code></pre>
+      <div class="flow-steps"><div class="flow-step">HAL 함수 호출</div><div class="flow-step">GPIOB 레지스터 제어</div><div class="flow-step">PB5 HIGH</div><div class="flow-step">LED 켜짐</div></div>
+      <ul><li>함수 이름으로 코드의 목적을 파악하기 쉽다.</li><li>레지스터 주소와 bit 계산을 반복하지 않아도 된다.</li><li>GPIO, UART, Timer 등을 일관된 구조로 사용할 수 있다.</li><li>정해진 상태값으로 동작 결과를 확인할 수 있다.</li></ul>
+      <p>HAL을 사용하더라도 Pin 설정, 통신 속도, 데이터 길이 같은 하드웨어 조건은 개발자가 정확히 지정해야 한다.</p>
+
+      <h2 id="location">HAL 드라이버의 위치</h2>
+      <pre><code>01_GPIO_LED/
+└── Drivers/
+    └── STM32F4xx_HAL_Driver/
+        ├── Inc/
+        └── Src/</code></pre>
+      <ul><li><code>Inc/</code>: 함수 원형, 자료형, 상수 정의가 있는 Header 파일</li><li><code>Src/</code>: HAL 함수의 실제 동작 코드가 있는 Source 파일</li></ul>
+      <p>UART 송신 함수는 <code>Inc/stm32f4xx_hal_uart.h</code>와 <code>Src/stm32f4xx_hal_uart.c</code>에서 확인할 수 있다.</p>
+      <pre><code>HAL_StatusTypeDef HAL_UART_Transmit(
+    UART_HandleTypeDef *huart,
+    const uint8_t *pData,
+    uint16_t Size,
+    uint32_t Timeout
+);</code></pre>
+
+      <h2 id="handle">Handle 구조체</h2>
+      <p>HAL은 주변장치의 설정과 현재 상태를 <code>Handle</code> 구조체로 관리한다.</p>
+      <pre><code>UART_HandleTypeDef huart2;
+
+huart2.Instance = USART2;
+huart2.Init.BaudRate = 115200;
+huart2.Init.WordLength = UART_WORDLENGTH_8B;
+huart2.Init.StopBits = UART_STOPBITS_1;
+huart2.Init.Parity = UART_PARITY_NONE;
+huart2.Init.Mode = UART_MODE_TX_RX;</code></pre>
+      <pre><code>HAL_UART_Transmit(&amp;huart2,
+                  message,
+                  sizeof(message) - 1U,
+                  HAL_MAX_DELAY);</code></pre>
+      <p><code>&amp;huart2</code>를 통해 HAL은 USART2의 설정과 현재 동작 상태를 확인하고 갱신할 수 있다.</p>
+
+      <h2 id="functions">초기화 함수와 동작 함수</h2>
+      <h3>초기화 함수</h3>
+      <pre><code>HAL_Init();
+MX_GPIO_Init();
+MX_USART2_UART_Init();</code></pre>
+      <p><code>MX_GPIO_Init()</code>과 <code>MX_USART2_UART_Init()</code>은 STM32CubeMX가 생성한 초기화 함수다. 내부에서 설정 구조체와 Handle을 준비한 뒤 <code>HAL_GPIO_Init()</code>, <code>HAL_UART_Init()</code> 같은 HAL 함수를 호출한다.</p>
+      <h3>동작 함수</h3>
+      <pre><code>HAL_GPIO_ReadPin(USER_BUTTON_GPIO_Port, USER_BUTTON_Pin);
+HAL_GPIO_WritePin(GPIOB, GREEN_LED_Pin, GPIO_PIN_SET);
+HAL_UART_Transmit(&amp;huart2, message,
+                  sizeof(message) - 1U,
+                  HAL_MAX_DELAY);</code></pre>
+      <div class="flow-steps"><div class="flow-step">HAL_Init()</div><div class="flow-step">GPIO 초기화</div><div class="flow-step">USART2 초기화</div><div class="flow-step">UART 송신</div></div>
+
+      <h2 id="status">HAL 함수의 반환값</h2>
+      <p>여러 HAL 함수는 HAL 드라이버에 미리 정의된 <code>HAL_StatusTypeDef</code>로 실행 결과를 반환한다. <code>HAL_OK</code> 역시 사용자가 만든 값이 아니라 HAL에서 제공하는 상태값이다.</p>
+      <pre><code>typedef enum
+{
+    HAL_OK      = 0x00U,
+    HAL_ERROR   = 0x01U,
+    HAL_BUSY    = 0x02U,
+    HAL_TIMEOUT = 0x03U
+} HAL_StatusTypeDef;</code></pre>
+      <table><thead><tr><th>반환값</th><th>의미</th></tr></thead><tbody><tr><td><code>HAL_OK</code></td><td>정상 완료</td></tr><tr><td><code>HAL_ERROR</code></td><td>동작 중 오류 발생</td></tr><tr><td><code>HAL_BUSY</code></td><td>주변장치가 다른 작업 수행 중</td></tr><tr><td><code>HAL_TIMEOUT</code></td><td>제한 시간 안에 완료되지 않음</td></tr></tbody></table>
+      <p>UART Interrupt 수신을 시작할 때도 반환값을 검사한다.</p>
+      <pre><code>if (HAL_UART_Receive_IT(&amp;huart2, &amp;receivedByte, 1U) != HAL_OK)
+{
+    Error_Handler();
+}</code></pre>
+      <p><code>HAL_OK</code>이면 수신이 정상적으로 등록된 것이다. 이후 문자가 도착하면 USART2 IRQ와 <code>HAL_UART_RxCpltCallback()</code>을 통해 완료를 알린다.</p>
+
+      <h2 id="dma">UART DMA에서 사용하는 HAL</h2>
+      <p><code>03_UART_DMA</code>에서는 두 개의 <code>DMA_HandleTypeDef</code>로 USART2 RX와 TX의 DMA 설정과 상태를 관리한다.</p>
+      <pre><code>DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;</code></pre>
+
+      <h3><code>__HAL_RCC_DMA1_CLK_ENABLE()</code></h3>
+      <p>DMA1에 Peripheral Clock을 공급하는 HAL Macro다.</p>
+      <pre><code>__HAL_RCC_DMA1_CLK_ENABLE();</code></pre>
+      <p>STM32는 사용하지 않는 주변장치의 Clock을 꺼 전력 소모를 줄인다. DMA Register를 설정하거나 전송을 시작하기 전에 DMA1 Clock을 먼저 활성화해야 한다.</p>
+
+      <h3><code>HAL_NVIC_SetPriority()</code>와 <code>HAL_NVIC_EnableIRQ()</code></h3>
+      <p>DMA Stream Interrupt의 우선순위를 정하고 NVIC에서 해당 IRQ를 활성화한다.</p>
+      <pre><code>HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+
+HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);</code></pre>
+      <table><thead><tr><th>함수</th><th>핵심 인자</th><th>역할</th></tr></thead><tbody><tr><td><code>HAL_NVIC_SetPriority()</code></td><td>IRQ, Preemption Priority, Subpriority</td><td>IRQ 우선순위 설정</td></tr><tr><td><code>HAL_NVIC_EnableIRQ()</code></td><td>IRQ</td><td>NVIC에서 해당 Interrupt 허용</td></tr></tbody></table>
+      <p>Stream5는 USART2 RX DMA, Stream6은 USART2 TX DMA가 사용한다. 두 IRQ 모두 Priority를 <code>0, 0</code>으로 설정했다.</p>
+      <p><code>MX_DMA_Init()</code>은 STM32CubeMX가 만든 Project 초기화 함수이며 HAL 함수가 아니다. 내부에서 DMA Clock과 NVIC 설정을 위해 위 HAL Macro와 함수를 호출한다.</p>
+
+      <h3><code>HAL_DMA_Init()</code></h3>
+      <p>DMA Handle에 지정한 Stream, Channel, 전송 방향, 주소 증가 방식과 데이터 단위를 실제 DMA Register에 적용한다.</p>
+      <pre><code>if (HAL_DMA_Init(&amp;hdma_usart2_rx) != HAL_OK)
+{
+    Error_Handler();
+}</code></pre>
+      <table><thead><tr><th>항목</th><th>의미</th></tr></thead><tbody><tr><td><code>&amp;hdma_usart2_rx</code></td><td>초기화할 RX DMA Handle 주소</td></tr><tr><td>반환값</td><td><code>HAL_OK</code>, <code>HAL_ERROR</code> 등의 <code>HAL_StatusTypeDef</code></td></tr></tbody></table>
+
+      <h3><code>__HAL_LINKDMA()</code></h3>
+      <p><code>__HAL_LINKDMA()</code>는 UART Handle과 DMA Handle을 연결하는 HAL Macro다.</p>
+      <pre><code>__HAL_LINKDMA(huart, hdmarx, hdma_usart2_rx);
+__HAL_LINKDMA(huart, hdmatx, hdma_usart2_tx);</code></pre>
+      <table><thead><tr><th>인자</th><th>RX 예시</th><th>의미</th></tr></thead><tbody><tr><td>Peripheral Handle</td><td><code>huart</code></td><td>DMA를 사용할 UART Handle</td></tr><tr><td>DMA Field</td><td><code>hdmarx</code></td><td>UART Handle 내부 RX DMA 연결 필드</td></tr><tr><td>DMA Handle</td><td><code>hdma_usart2_rx</code></td><td>연결할 DMA Handle</td></tr></tbody></table>
+      <p>Macro 실행 후 UART Handle의 <code>hdmarx</code> 또는 <code>hdmatx</code>가 DMA Handle을 가리키고, DMA Handle의 <code>Parent</code>가 UART Handle을 가리킨다.</p>
+      <div class="flow-steps"><div class="flow-step">huart2.hdmarx</div><div class="flow-step">hdma_usart2_rx</div><div class="flow-step">Parent</div><div class="flow-step">huart2</div></div>
+
+      <h3><code>HAL_UART_Transmit_DMA()</code></h3>
+      <p>Memory Buffer의 데이터를 DMA로 UART에 송신하도록 시작한다.</p>
+      <pre><code>HAL_UART_Transmit_DMA(&amp;huart2,
+                      uartDmaTxBuffer,
+                      chunkSize);</code></pre>
+      <table><thead><tr><th>인자</th><th>의미</th></tr></thead><tbody><tr><td><code>&amp;huart2</code></td><td>송신에 사용할 UART Handle</td></tr><tr><td><code>uartDmaTxBuffer</code></td><td>DMA가 읽을 Memory Buffer</td></tr><tr><td><code>chunkSize</code></td><td>송신할 바이트 수</td></tr></tbody></table>
+      <p>함수는 송신을 시작한 뒤 반환하고, DMA와 UART 송신이 끝나면 <code>HAL_UART_TxCpltCallback()</code>이 호출된다. 현재 <code>_write()</code>는 Callback이 Flag를 바꿀 때까지 <code>__WFI()</code>로 기다리므로 호출 방식은 동기식이다.</p>
+      <p><code>__WFI()</code>는 HAL이 아니라 CMSIS-Core가 제공하는 CPU Intrinsic이다. 자세한 내용은 <a href="CMSIS.html">CMSIS 학습 문서</a>에서 관리한다.</p>
+
+      <h3><code>HAL_UARTEx_ReceiveToIdle_DMA()</code></h3>
+      <p>정해진 Buffer 크기만큼 DMA 수신을 시작하면서 UART IDLE 상태도 감지한다.</p>
+      <pre><code>HAL_UARTEx_ReceiveToIdle_DMA(&amp;huart2,
+                             uartDmaRxBuffer,
+                             UART_RX_BUFFER_SIZE);</code></pre>
+      <table><thead><tr><th>인자</th><th>의미</th></tr></thead><tbody><tr><td><code>&amp;huart2</code></td><td>수신에 사용할 UART Handle</td></tr><tr><td><code>uartDmaRxBuffer</code></td><td>DMA가 저장할 Memory Buffer</td></tr><tr><td><code>UART_RX_BUFFER_SIZE</code></td><td>수신 가능한 최대 바이트 수</td></tr></tbody></table>
+      <p>Buffer가 가득 차거나 RX 선이 IDLE 상태가 되면 실제 수신 크기와 함께 <code>HAL_UARTEx_RxEventCallback()</code>이 호출된다. 현재 RX DMA는 <code>DMA_NORMAL</code>이므로 Callback에서 다음 수신을 다시 등록한다.</p>
+
+      <h3><code>__HAL_DMA_DISABLE_IT()</code></h3>
+      <p>특정 DMA Interrupt를 비활성화하는 HAL Macro다.</p>
+      <pre><code>__HAL_DMA_DISABLE_IT(&amp;hdma_usart2_rx, DMA_IT_HT);</code></pre>
+      <p>현재 코드는 Half Transfer Interrupt인 <code>DMA_IT_HT</code>를 사용하지 않으므로 비활성화하고 IDLE 또는 Transfer Complete 이벤트만 처리한다.</p>
+
+      <h3><code>HAL_DMA_IRQHandler()</code>와 Callback</h3>
+      <p>DMA Stream IRQ에서 <code>HAL_DMA_IRQHandler()</code>를 호출하면 HAL이 발생한 Flag를 확인하고 완료 또는 오류 처리로 전달한다.</p>
+      <pre><code>void DMA1_Stream5_IRQHandler(void)
+{
+    HAL_DMA_IRQHandler(&amp;hdma_usart2_rx);
+}</code></pre>
+      <p>RX는 DMA1 Stream5, TX는 DMA1 Stream6 IRQ에서 각각 자신의 DMA Handle을 전달한다.</p>
+      <h3><code>HAL_UART_IRQHandler()</code></h3>
+      <p>USART IRQ에서 호출해 RXNE, IDLE, TC, 오류 등의 UART Interrupt 원인을 확인하고 HAL의 해당 처리로 전달한다.</p>
+      <pre><code>void USART2_IRQHandler(void)
+{
+    HAL_UART_IRQHandler(&amp;huart2);
+}</code></pre>
+      <p>현재 DMA 수신에서는 IDLE 감지, DMA 송신에서는 UART의 최종 Transmission Complete 처리에 사용된다. DMA Stream IRQ와 USART2 IRQ는 서로 대체하지 않으며 전송 단계에 따라 둘 다 사용될 수 있다.</p>
+      <p>Callback은 애플리케이션에서 구현하지만 이름과 호출 시점은 HAL이 정의한다.</p>
+      <pre><code>void HAL_UARTEx_RxEventCallback(
+    UART_HandleTypeDef *huart,
+    uint16_t size);
+
+void HAL_UART_TxCpltCallback(
+    UART_HandleTypeDef *huart);</code></pre>
+      <ul><li><code>HAL_UARTEx_RxEventCallback()</code>: IDLE 또는 DMA 수신 완료 시 실제 수신 크기를 전달한다.</li><li><code>HAL_UART_TxCpltCallback()</code>: DMA 기반 UART 송신 완료를 알린다.</li></ul>
+      <div class="flow-steps"><div class="flow-step">UART DMA 시작</div><div class="flow-step">DMA 데이터 이동</div><div class="flow-step">DMA 또는 USART2 IRQ</div><div class="flow-step">HAL Callback</div></div>
+      <p>DMA 코드의 Debug 빌드와 ELF 생성, Flash 기록과 Verify를 완료했다. 실제 보드에서 UART DMA 송수신과 문자열 LED 명령 동작도 확인했다.</p>
+
+      <h2 id="adc">ADC에서 사용하는 HAL</h2>
+      <p><code>04_ADC_CdS</code>에서는 <code>ADC_HandleTypeDef hadc1</code>에 ADC1 설정과 상태를 저장한다. PA0는 <code>ADC1_IN0</code> Analog Input이며, 12-bit 단일 변환을 Software Trigger로 실행한다.</p>
+      <h3><code>HAL_ADC_Init()</code>과 <code>HAL_ADC_ConfigChannel()</code></h3>
+      <pre><code>HAL_ADC_Init(&amp;hadc1);
+
+channelConfig.Channel = ADC_CHANNEL_0;
+channelConfig.Rank = 1;
+channelConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
+HAL_ADC_ConfigChannel(&amp;hadc1, &amp;channelConfig);</code></pre>
+      <p><code>HAL_ADC_Init()</code>은 Handle 설정을 ADC1에 적용하며 내부에서 <code>HAL_ADC_MspInit()</code>을 호출해 ADC1 Clock과 PA0 Analog Mode를 준비한다. 이때 <code>__HAL_RCC_ADC1_CLK_ENABLE()</code> Macro가 ADC1 Peripheral Clock을 활성화한다. <code>HAL_ADC_ConfigChannel()</code>은 변환할 Channel, 순서와 Sampling Time을 정한다.</p>
+      <h3>Polling 단일 변환</h3>
+      <pre><code>HAL_ADC_Start(&amp;hadc1);
+HAL_ADC_PollForConversion(&amp;hadc1, 10U);
+rawValue = HAL_ADC_GetValue(&amp;hadc1);
+HAL_ADC_Stop(&amp;hadc1);</code></pre>
+      <table><thead><tr><th>함수</th><th>핵심 인자·반환값</th><th>현재 역할</th></tr></thead><tbody><tr><td><code>HAL_ADC_Start()</code></td><td><code>&amp;hadc1</code>, <code>HAL_StatusTypeDef</code></td><td>Software Trigger 변환 시작</td></tr><tr><td><code>HAL_ADC_PollForConversion()</code></td><td><code>&amp;hadc1</code>, Timeout 10ms</td><td>EOC Flag까지 Polling</td></tr><tr><td><code>HAL_ADC_GetValue()</code></td><td><code>&amp;hadc1</code>, <code>uint32_t</code></td><td>12-bit 결과 0~4095 읽기</td></tr><tr><td><code>HAL_ADC_Stop()</code></td><td><code>&amp;hadc1</code>, <code>HAL_StatusTypeDef</code></td><td>단일 변환 종료</td></tr></tbody></table>
+      <div class="flow-steps"><div class="flow-step">변환 시작</div><div class="flow-step">완료 Polling</div><div class="flow-step">결과 읽기</div><div class="flow-step">ADC 정지</div></div>
+      <p>현재 ADC 경로는 Interrupt와 Callback을 사용하지 않으므로 ADC IRQ도 활성화하지 않는다. 구현과 Debug 빌드는 완료했지만 CdS 모듈을 연결한 보드 값은 아직 확인하지 않았다.</p>
+
+      <h2 id="register">HAL과 직접 레지스터 제어의 관계</h2>
+      <p>HAL과 직접 레지스터 제어는 서로 다른 하드웨어를 사용하는 방식이 아니다. HAL 함수도 최종적으로 같은 STM32 레지스터를 읽고 쓴다.</p>
+      <table><thead><tr><th>방식</th><th>흐름</th></tr></thead><tbody><tr><td>HAL 사용</td><td>함수 호출 → HAL 내부 코드 → 레지스터</td></tr><tr><td>직접 제어</td><td>사용자 코드 → 레지스터</td></tr></tbody></table>
+      <p>현재 단계에서는 HAL로 GPIO, UART와 ADC의 동작 흐름을 먼저 익히고, 직접 레지스터 제어는 내부 구조를 더 깊게 학습할 때 다룬다.</p>
+
+      <h2 id="summary">배운 점</h2>
+      <ul><li>HAL은 STM32 주변장치를 함수와 구조체로 제어하게 해주는 하드웨어 추상화 계층이다.</li><li>HAL 함수 내부에서도 최종적으로 MCU 레지스터를 읽거나 쓴다.</li><li>주변장치 설정과 상태는 <code>Handle</code> 구조체에 저장한다.</li><li>주변장치를 초기화한 다음 HAL 동작 함수를 호출해야 한다.</li><li>여러 HAL 함수는 정해진 상태값으로 결과를 반환한다.</li><li><code>__HAL_LINKDMA()</code>는 UART Handle과 DMA Handle을 양방향으로 연결한다.</li><li>UART DMA 함수는 전송을 시작한 뒤 IRQ와 Callback으로 완료를 알린다.</li><li>ADC Polling 변환은 시작, 완료 대기, 결과 읽기, 정지 순서로 수행한다.</li></ul>
+      <h3>한 줄 정리</h3>
+      <p class="summary"><strong>STM32 HAL은 레지스터 제어를 함수, Macro와 Handle 구조체로 감싸 GPIO, UART, DMA와 ADC를 일관된 방식으로 사용할 수 있게 해주는 드라이버 계층이다.</strong></p>
+    </article>
+  </main>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 C: 포인터와 임베디드 자료형</title>
+  <style>
+    :root { --text:#222; --muted:#666; --line:#e5e5e5; --primary:#2563eb; --soft:#f6f8fa; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; color:var(--text); background:#fff; font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; word-break:keep-all; }
+    .hero { padding:56px 24px 36px; border-bottom:1px solid var(--line); }
+    .hero-inner, main { width:min(820px,calc(100% - 40px)); margin:0 auto; }
+    .eyebrow { margin:0 0 6px; color:var(--primary); font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    h1 { margin:0; font-size:clamp(34px,6vw,46px); line-height:1.2; letter-spacing:-.035em; }
+    .hero-description { max-width:680px; margin:12px 0 0; color:var(--muted); }
+    main { padding:32px 0 72px; }
+    .toc { display:flex; flex-wrap:wrap; gap:8px 18px; margin-bottom:44px; padding-bottom:24px; border-bottom:1px solid var(--line); }
+    .toc a, a { color:var(--primary); text-decoration:none; }
+    .toc a { color:var(--muted); font-size:14px; }
+    a:hover { text-decoration:underline; }
+    h2 { margin:64px 0 18px; padding-top:48px; border-top:1px solid var(--line); font-size:28px; line-height:1.35; letter-spacing:-.025em; scroll-margin-top:24px; }
+    h2:first-child { margin-top:0; padding-top:0; border-top:0; }
+    h3 { margin:34px 0 12px; font-size:20px; }
+    p { margin:12px 0; }
+    code { padding:2px 5px; border-radius:4px; color:#1d4ed8; background:#eef3ff; font-family:Consolas,"Courier New",monospace; font-size:.92em; }
+    pre { overflow-x:auto; margin:16px 0; padding:16px; border:1px solid var(--line); border-radius:6px; color:#24292f; background:var(--soft); line-height:1.6; }
+    pre code { padding:0; color:inherit; background:transparent; font-size:14px; }
+    table { width:100%; margin:16px 0; border:1px solid var(--line); border-collapse:collapse; table-layout:fixed; }
+    th, td { padding:10px 14px; border:1px solid var(--line); text-align:left; vertical-align:top; overflow-wrap:anywhere; }
+    th { background:var(--soft); font-size:14px; }
+    ul { padding-left:24px; }
+    .summary { margin-top:24px; padding:14px 16px; border-left:3px solid var(--primary); background:var(--soft); }
+    @media (max-width:700px) { .hero{padding:40px 20px 28px}.hero-inner,main{width:min(100% - 28px,820px)}main{padding-top:24px}h2{font-size:25px}table{font-size:14px}th,td{padding:8px 10px} }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Embedded Study Note</p>
+      <h1>STM32 C: 포인터와 임베디드 자료형</h1>
+      <p class="hero-description">GPIO와 UART 구현에서 실제로 사용한 포인터, 구조체, 상태 머신과 고정 폭 정수형을 정리한다.</p>
+    </div>
+  </header>
+  <main>
+    <nav class="toc" aria-label="문서 목차"><a href="../index.html">전체 목차</a><a href="#pointer">포인터</a><a href="#struct">구조체와 레지스터</a><a href="#state">enum 상태 머신</a><a href="#integer">고정 폭 정수형</a><a href="#summary">한 줄 정리</a></nav>
+    <article>
+      <h2 id="pointer">GPIO 포트를 전달하는 포인터</h2>
+      <p>서로 다른 GPIO Port에 연결된 LED를 하나의 함수로 제어하기 위해 Port는 포인터로, Pin은 값으로 전달했다.</p>
+      <pre><code>static void LED_On(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
+{
+    LED_AllOff();
+    HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_SET);
+}
+
+LED_On(GPIOB, GREEN_LED_Pin);
+LED_On(GPIOA, RED_LED_Pin);</code></pre>
+      <p><code>GPIO_TypeDef *GPIOx</code>는 GPIO 주변장치 레지스터가 있는 주소를 저장한다. 호출 시 전달한 <code>GPIOB</code>와 <code>GREEN_LED_Pin</code>은 함수 안의 <code>GPIOx</code>와 <code>GPIO_Pin</code>에 각각 대응한다.</p>
+      <table><thead><tr><th>매개변수</th><th>전달하는 내용</th><th>방식</th></tr></thead><tbody><tr><td><code>GPIO_TypeDef *GPIOx</code></td><td>GPIO 레지스터의 주소</td><td>포인터</td></tr><tr><td><code>uint16_t GPIO_Pin</code></td><td>Pin 선택 비트값</td><td>값</td></tr></tbody></table>
+      <ul><li>포인터는 일반 데이터뿐 아니라 하드웨어 레지스터의 위치도 전달한다.</li><li>Port를 포인터 매개변수로 받으면 하나의 함수를 GPIOA, GPIOB 등에 재사용할 수 있다.</li><li>선언의 <code>*</code>는 주소를 저장하는 포인터라는 뜻이다.</li></ul>
+
+      <h2 id="struct">구조체로 표현한 GPIO 레지스터</h2>
+      <pre><code>typedef struct
+{
+    __IO uint32_t MODER;
+    __IO uint32_t OTYPER;
+    __IO uint32_t OSPEEDR;
+    __IO uint32_t PUPDR;
+    __IO uint32_t IDR;
+    __IO uint32_t ODR;
+    __IO uint32_t BSRR;
+    __IO uint32_t LCKR;
+    __IO uint32_t AFR[2];
+} GPIO_TypeDef;</code></pre>
+      <p><code>typedef struct</code>는 관련된 레지스터를 하나의 구조체로 묶고 자료형 이름을 <code>GPIO_TypeDef</code>로 정한다. STM32에서는 별도 변수를 만드는 대신 실제 GPIO 시작 주소를 이 구조체 형태로 바라본다.</p>
+      <table><thead><tr><th>멤버</th><th>오프셋</th><th>역할</th></tr></thead><tbody><tr><td><code>MODER</code></td><td><code>0x00</code></td><td>입력·출력·대체 기능 모드</td></tr><tr><td><code>OTYPER</code></td><td><code>0x04</code></td><td>Push-Pull·Open-Drain</td></tr><tr><td><code>OSPEEDR</code></td><td><code>0x08</code></td><td>출력 속도</td></tr><tr><td><code>PUPDR</code></td><td><code>0x0C</code></td><td>Pull-up·Pull-down</td></tr><tr><td><code>IDR</code></td><td><code>0x10</code></td><td>입력 상태</td></tr><tr><td><code>ODR</code></td><td><code>0x14</code></td><td>출력 상태</td></tr><tr><td><code>BSRR</code></td><td><code>0x18</code></td><td>Pin SET·RESET</td></tr><tr><td><code>LCKR</code></td><td><code>0x1C</code></td><td>설정 잠금</td></tr><tr><td><code>AFR[2]</code></td><td><code>0x20</code>, <code>0x24</code></td><td>UART 등의 대체 기능</td></tr></tbody></table>
+      <h3><code>__IO</code>와 실제 주소 연결</h3>
+      <p><code>__IO</code>는 읽고 쓸 수 있는 하드웨어 레지스터임을 나타내며 내부적으로 <code>volatile</code> 성격을 가진다. 하드웨어가 값을 바꿀 수 있으므로 컴파일러가 접근을 임의로 제거하거나 캐시하지 못하게 한다.</p>
+      <pre><code>#define GPIOA ((GPIO_TypeDef *) GPIOA_BASE)
+#define GPIOB ((GPIO_TypeDef *) GPIOB_BASE)
+
+GPIOB-&gt;ODR;  /* GPIOB 시작 주소 + ODR 오프셋 0x14 */</code></pre>
+      <p><code>-&gt;</code>는 구조체 포인터가 가리키는 대상의 멤버에 접근하는 연산자다. 구조체 배치를 실제 레지스터 배치와 맞췄기 때문에 주소 계산 대신 의미 있는 멤버 이름을 사용할 수 있다.</p>
+
+      <h2 id="state"><code>enum</code>과 <code>switch</code> 상태 머신</h2>
+      <pre><code>typedef enum
+{
+    LED_STATE_IDLE,
+    LED_STATE_RUNNING,
+    LED_STATE_WARNING,
+    LED_STATE_ERROR,
+    LED_STATE_COUNT
+} LED_State;
+
+static LED_State currentState = LED_STATE_IDLE;
+
+currentState = (LED_State)((currentState + 1) % LED_STATE_COUNT);</code></pre>
+      <p>상태값은 선언 순서대로 0부터 시작한다. <code>LED_STATE_COUNT</code>는 실제 상태가 아니라 상태 개수 4를 나타내며, 나머지 연산으로 <code>IDLE → RUNNING → WARNING → ERROR → IDLE</code> 순환을 만든다.</p>
+      <pre><code>switch (state)
+{
+    case LED_STATE_IDLE:
+        LED_On(GREEN_LED_GPIO_Port, GREEN_LED_Pin);
+        break;
+    case LED_STATE_RUNNING:
+        LED_On(BLUE_LED_GPIO_Port, BLUE_LED_Pin);
+        break;
+    case LED_STATE_WARNING:
+        LED_On(YELLOW_LED_GPIO_Port, YELLOW_LED_Pin);
+        break;
+    case LED_STATE_ERROR:
+        LED_On(RED_LED_GPIO_Port, RED_LED_Pin);
+        break;
+    default:
+        LED_AllOff();
+        break;
+}</code></pre>
+      <p><code>break</code>는 선택된 동작 후 <code>switch</code>를 종료한다. <code>default</code>는 예상하지 못한 값에서 모든 LED를 끄는 안전 처리다.</p>
+
+      <h2 id="integer">고정 폭 정수형</h2>
+      <pre><code>uint8_t message[] = "Hello STM32!\r\n";
+static void LED_On(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin);
+uint32_t lastDebounceTime = 0U;</code></pre>
+      <p><code>stdint.h</code>의 <code>uint8_t</code>, <code>uint16_t</code>, <code>uint32_t</code>는 unsigned 정수의 bit 수가 이름에 명확히 드러나는 자료형이다.</p>
+      <table><thead><tr><th>자료형</th><th>크기와 범위</th><th>현재 용도</th></tr></thead><tbody><tr><td><code>uint8_t</code></td><td>1byte, 0~255</td><td>UART byte 배열</td></tr><tr><td><code>uint16_t</code></td><td>2byte, 0~65,535</td><td>GPIO Pin 선택 비트</td></tr><tr><td><code>uint32_t</code></td><td>4byte, 0~4,294,967,295</td><td><code>HAL_GetTick()</code> 시간</td></tr></tbody></table>
+      <h3>UART, GPIO와 시간값</h3>
+      <p>UART는 byte 단위로 데이터를 전송하므로 <code>uint8_t</code> 배열이 적합하다. GPIO Port의 Pin 0~15는 16개의 서로 다른 bit로 표현되므로 Pin 값은 <code>uint16_t</code>를 사용한다. <code>HAL_GetTick()</code>은 밀리초 단위의 <code>uint32_t</code>를 반환하므로 이전 시간도 같은 자료형으로 저장한다.</p>
+      <pre><code>HAL_UART_Transmit(&amp;huart2,
+                  message,
+                  sizeof(message) - 1U,
+                  HAL_MAX_DELAY);
+
+if ((HAL_GetTick() - lastDebounceTime) &gt;= BUTTON_DEBOUNCE_MS)
+{
+    /* debounced button event */
+}</code></pre>
+      <h3><code>U</code> 접미사와 <code>sizeof()</code></h3>
+      <p><code>0U</code>와 <code>1U</code>의 <code>U</code>는 상수를 <code>unsigned int</code>로 취급한다는 뜻이다. <code>sizeof(message)</code>에는 C 문자열 끝의 <code>\0</code>도 포함되므로, 화면에 표시할 문자만 전송할 때 <code>1U</code>를 뺀다.</p>
+      <ul><li>고정 폭 정수형은 레지스터, 통신 데이터, 시간처럼 크기가 중요한 코드의 의도를 분명하게 한다.</li><li>계산하는 값끼리 자료형을 맞추면 signed/unsigned 혼합을 줄일 수 있다.</li><li><code>sizeof()</code>는 배열 전체의 byte 크기를 계산한다.</li></ul>
+
+      <h2 id="summary">한 줄 정리</h2>
+      <p class="summary"><strong>포인터와 구조체로 하드웨어 레지스터를 표현하고, <code>enum</code> 상태 머신과 고정 폭 정수형으로 임베디드 코드의 의미와 데이터 크기를 명확하게 만들었다.</strong></p>
+    </article>
+  </main>
+</body>
+</html>

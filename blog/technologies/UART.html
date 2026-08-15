@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 UART: 송수신과 인터럽트 문자열 명령</title>
+  <style>
+    :root { --text:#222; --muted:#666; --line:#e5e5e5; --primary:#2563eb; --soft:#f6f8fa; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; color:var(--text); background:#fff; font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; word-break:keep-all; }
+    .hero { padding:56px 24px 36px; border-bottom:1px solid var(--line); }
+    .hero-inner, main { width:min(820px,calc(100% - 40px)); margin:0 auto; }
+    .eyebrow { margin:0 0 6px; color:var(--primary); font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    h1 { margin:0; font-size:clamp(34px,6vw,46px); line-height:1.2; letter-spacing:-.035em; }
+    .hero-description { max-width:680px; margin:12px 0 0; color:var(--muted); }
+    main { padding:32px 0 72px; }
+    .toc { display:flex; flex-wrap:wrap; gap:8px 18px; margin-bottom:44px; padding-bottom:24px; border-bottom:1px solid var(--line); }
+    .toc a { color:var(--muted); font-size:14px; text-decoration:none; }
+    .toc a:hover { color:var(--primary); }
+    h2 { margin:64px 0 18px; padding-top:48px; border-top:1px solid var(--line); font-size:28px; line-height:1.35; letter-spacing:-.025em; scroll-margin-top:24px; }
+    h2:first-child { margin-top:0; padding-top:0; border-top:0; }
+    h3 { margin:34px 0 12px; font-size:20px; line-height:1.45; }
+    p { margin:12px 0; }
+    code { padding:2px 5px; border-radius:4px; color:#1d4ed8; background:#eef3ff; font-family:Consolas,"Courier New",monospace; font-size:.92em; }
+    pre { overflow-x:auto; margin:16px 0; padding:16px; border:1px solid var(--line); border-radius:6px; color:#24292f; background:var(--soft); line-height:1.6; }
+    pre code { padding:0; color:inherit; background:transparent; font-size:14px; }
+    table { width:100%; margin:16px 0; border:1px solid var(--line); border-collapse:collapse; table-layout:fixed; }
+    th, td { padding:10px 14px; border:1px solid var(--line); text-align:left; vertical-align:top; overflow-wrap:anywhere; }
+    th { background:var(--soft); font-size:14px; }
+    ul { margin:12px 0; padding-left:24px; }
+    li { margin:6px 0; }
+    .diagram { display:grid; gap:10px; margin:20px 0; }
+    .diagram-box { padding:12px 14px; border:1px solid var(--line); border-radius:6px; background:var(--soft); text-align:center; overflow-wrap:anywhere; }
+    .diagram-arrow { color:var(--primary); font-weight:700; text-align:center; line-height:1; }
+    .flow { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:20px 0; counter-reset:flow; }
+    .flow-step { min-width:0; padding:12px; border:1px solid var(--line); border-top:3px solid var(--primary); border-radius:6px; background:#fff; overflow-wrap:anywhere; }
+    .flow-step::before { counter-increment:flow; content:counter(flow); display:block; margin-bottom:4px; color:var(--primary); font-size:13px; font-weight:700; }
+    .note { margin:18px 0; padding:14px 16px; border-left:3px solid var(--primary); background:var(--soft); }
+    .summary { margin-top:24px; padding:14px 16px; border-left:3px solid var(--primary); background:var(--soft); }
+    @media (max-width:700px) { .hero{padding:40px 20px 28px}.hero-inner,main{width:min(100% - 28px,820px)} main{padding-top:24px} h2{font-size:25px} table{font-size:14px} th,td{padding:8px 10px}.flow{grid-template-columns:1fr 1fr} }
+    @media (max-width:440px) { .flow{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Embedded Study Note</p>
+      <h1>STM32 UART: 송수신과 인터럽트 문자열 명령</h1>
+      <p class="hero-description">NUCLEO-F401RE의 USART2 송신과 Interrupt 수신으로 PC 터미널 명령을 처리한 과정을 정리한다.</p>
+    </div>
+  </header>
+  <main>
+    <nav class="toc" aria-label="문서 목차">
+      <a href="#concept">기본 개념</a><a href="#goal">구현 목표</a><a href="#code">핵심 코드</a><a href="#explanation">코드 설명</a><a href="#flow">동작 흐름</a><a href="#result">실행 결과</a><a href="#learned">배운 점</a><a href="#summary">한 줄 정리</a>
+    </nav>
+    <article>
+      <h2 id="concept">기본 개념</h2>
+      <p>UART(Universal Asynchronous Receiver/Transmitter)는 별도의 Clock 선 없이 TX와 RX 선으로 데이터를 주고받는 비동기 직렬 통신 방식이다. 송신 측과 수신 측이 같은 Baud rate와 Frame 형식을 사용해야 한다.</p>
+      <table>
+        <thead><tr><th>용어</th><th>의미</th></tr></thead>
+        <tbody><tr><td>TX</td><td>데이터를 보내는 선</td></tr><tr><td>RX</td><td>데이터를 받는 선</td></tr><tr><td>Baud rate</td><td>1초 동안 전송하는 Symbol 수</td></tr><tr><td>8-N-1</td><td>Data 8 bit, Parity 없음, Stop bit 1개</td></tr><tr><td>Polling</td><td>함수가 수신 완료까지 기다리는 방식</td></tr><tr><td>Interrupt</td><td>데이터가 도착했을 때 CPU에 이벤트를 알리는 방식</td></tr></tbody>
+      </table>
+      <p>NUCLEO-F401RE에서는 USART2가 ST-LINK Virtual COM Port와 연결되어 있어 USB 케이블로 PC 터미널과 통신할 수 있다.</p>
+      <div class="diagram" aria-label="UART 연결 구조">
+        <div class="diagram-box">PC 터미널</div><div class="diagram-arrow">↓ USB</div><div class="diagram-box">ST-LINK Virtual COM Port</div><div class="diagram-arrow">↓ USART2</div><div class="diagram-box">PA2(TX) · PA3(RX) · STM32F401RE</div>
+      </div>
+      <table>
+        <thead><tr><th>항목</th><th>설정</th></tr></thead>
+        <tbody><tr><td>UART</td><td>USART2</td></tr><tr><td>TX / RX</td><td>PA2 / PA3</td></tr><tr><td>Baud rate</td><td>115200 bps</td></tr><tr><td>Frame</td><td>8-N-1</td></tr><tr><td>Flow control</td><td>None</td></tr></tbody>
+      </table>
+
+      <h2 id="goal">구현 목표</h2>
+      <ul><li>PC 터미널로 시작 메시지와 현재 LED 상태를 송신한다.</li><li>UART 문자를 Interrupt 방식으로 한 바이트씩 수신한다.</li><li>받은 문자를 32바이트 Buffer에 모으고 Enter로 명령을 완성한다.</li><li>문자열 명령으로 네 가지 LED 상태를 변경한다.</li><li><code>status</code>, <code>help</code>, 잘못된 명령과 Buffer 초과를 처리한다.</li></ul>
+
+      <h2 id="code">핵심 코드</h2>
+      <h3><code>printf()</code>를 USART2에 연결</h3>
+      <p>STM32에는 PC와 같은 기본 Console 출력 장치가 없다. <code>_write()</code>에서 <code>HAL_UART_Transmit()</code>을 호출하도록 연결하면 <code>printf()</code>가 만든 문자열을 USART2로 보낼 수 있다.</p>
+      <pre><code>int _write(int file, char *ptr, int len)
+{
+    (void)file;
+
+    if (HAL_UART_Transmit(&amp;huart2,
+                          (uint8_t *)ptr,
+                          (uint16_t)len,
+                          HAL_MAX_DELAY) == HAL_OK)
+    {
+        return len;
+    }
+
+    return -1;
+}</code></pre>
+      <pre><code>LED_ShowState(currentState);
+
+printf("Hello STM32!\r\n");
+UART_PrintState(currentState);</code></pre>
+
+      <h3>최초 Interrupt 수신 등록</h3>
+      <p><code>HAL_UART_Receive_IT()</code>에 한 바이트를 저장할 변수와 크기 <code>1U</code>를 전달한다. 등록 이후에는 문자가 들어올 때까지 Main Loop가 멈추지 않는다.</p>
+      <pre><code>if (HAL_UART_Receive_IT(&amp;huart2, &amp;receivedByte, 1U) != HAL_OK)
+{
+    Error_Handler();
+}</code></pre>
+      <p>USART2 Interrupt가 발생하면 IRQ Handler가 제어를 HAL Driver에 전달한다.</p>
+      <pre><code>void USART2_IRQHandler(void)
+{
+    HAL_UART_IRQHandler(&amp;huart2);
+}</code></pre>
+
+      <h3>수신 Callback과 문자열 Buffer</h3>
+      <pre><code>#define UART_RX_BUFFER_SIZE 32U
+
+static uint8_t receivedByte;
+static char uartRxBuffer[UART_RX_BUFFER_SIZE];
+static volatile uint8_t uartRxIndex = 0U;
+static volatile uint8_t uartCommandReady = 0U;
+static volatile uint8_t uartRxOverflow = 0U;</code></pre>
+      <p>일반 문자는 Buffer에 저장하고, Enter를 받으면 문자열 끝에 <code>\0</code>을 추가한다. Backspace는 Index를 한 칸 줄이며, 범위를 넘으면 Overflow Flag를 설정한다.</p>
+      <pre><code>if ((receivedByte == '\r') || (receivedByte == '\n'))
+{
+    if (uartRxIndex &gt; 0U)
+    {
+        uartRxBuffer[uartRxIndex] = '\0';
+        uartCommandReady = 1U;
+    }
+}
+else if ((receivedByte == '\b') || (receivedByte == 0x7FU))
+{
+    if (uartRxIndex &gt; 0U)
+    {
+        uartRxIndex--;
+    }
+}
+else if (uartRxIndex &lt; (UART_RX_BUFFER_SIZE - 1U))
+{
+    uartRxBuffer[uartRxIndex] = (char)receivedByte;
+    uartRxIndex++;
+}
+else
+{
+    uartRxOverflow = 1U;
+    uartCommandReady = 1U;
+}
+
+HAL_UART_Receive_IT(&amp;huart2, &amp;receivedByte, 1U);</code></pre>
+      <p class="note">마지막 <code>HAL_UART_Receive_IT()</code>는 다음 한 바이트를 받기 위한 재등록이다. 이 호출이 없으면 첫 글자를 받은 뒤 추가 수신이 진행되지 않는다.</p>
+
+      <h3>완성된 명령 처리</h3>
+      <p>Callback에서는 문자열을 모으는 짧은 작업만 수행한다. 명령 비교, LED 제어와 UART 출력은 <code>while (1)</code>에서 처리한다.</p>
+      <pre><code>if (uartCommandReady != 0U)
+{
+    if (uartRxOverflow != 0U)
+    {
+        printf("Command too long\r\n");
+    }
+    else
+    {
+        UART_HandleCommand(uartRxBuffer);
+    }
+
+    uartRxIndex = 0U;
+    uartRxOverflow = 0U;
+    uartCommandReady = 0U;
+}</code></pre>
+      <table>
+        <thead><tr><th>명령</th><th>동작</th></tr></thead>
+        <tbody><tr><td><code>g</code>, <code>G</code>, <code>led green</code></td><td>초록색 LED, IDLE</td></tr><tr><td><code>b</code>, <code>B</code>, <code>led blue</code></td><td>파란색 LED, RUNNING</td></tr><tr><td><code>y</code>, <code>Y</code>, <code>led yellow</code></td><td>노란색 LED, WARNING</td></tr><tr><td><code>r</code>, <code>R</code>, <code>led red</code></td><td>빨간색 LED, ERROR</td></tr><tr><td><code>status</code></td><td>현재 LED 상태 출력</td></tr><tr><td><code>help</code></td><td>명령 목록 출력</td></tr><tr><td>그 외 문자열</td><td><code>Unknown command. Type help.</code> 출력</td></tr></tbody>
+      </table>
+
+      <h2 id="explanation">코드 설명</h2>
+      <h3>Interrupt 수신을 사용한 이유</h3>
+      <p>Polling 수신은 데이터가 들어올 때까지 해당 함수에서 기다린다. Interrupt 수신을 사용하면 UART 입력을 기다리는 동안에도 Main Loop에서 Button Debouncing과 완성된 명령 처리를 계속 수행할 수 있다.</p>
+      <h3>32바이트 Buffer에서 최대 31글자만 받는 이유</h3>
+      <p>C 문자열은 마지막에 종료 문자 <code>\0</code>이 필요하다. 따라서 마지막 한 칸을 종료 문자용으로 남겨 두고 <code>uartRxIndex &lt; UART_RX_BUFFER_SIZE - 1U</code>일 때만 저장한다.</p>
+      <h3><code>volatile</code>을 사용한 이유</h3>
+      <p><code>uartCommandReady</code>, <code>uartRxIndex</code>, <code>uartRxOverflow</code>는 Interrupt Callback과 Main Loop가 함께 사용한다. <code>volatile</code>은 값이 실행 흐름 밖에서 바뀔 수 있으므로 매번 실제 메모리에서 읽도록 Compiler에 알린다.</p>
+      <h3>Callback에서 명령을 바로 처리하지 않는 이유</h3>
+      <p>Interrupt Callback이 길어지면 다른 Interrupt 처리가 늦어질 수 있다. Callback은 수신 데이터 저장과 Flag 변경만 담당하고, <code>strcmp()</code>, LED 제어, <code>printf()</code>는 Main Loop에서 실행한다.</p>
+
+      <h2 id="flow">동작 흐름</h2>
+      <div class="flow"><div class="flow-step">USART2 Interrupt 수신 등록</div><div class="flow-step">PC에서 한 문자 입력</div><div class="flow-step">IRQ Handler와 HAL Callback 실행</div><div class="flow-step">문자 저장 후 다음 수신 재등록</div><div class="flow-step">Enter에서 명령 Flag 설정</div><div class="flow-step">Main Loop에서 문자열 비교</div><div class="flow-step">LED 상태 변경</div><div class="flow-step">처리 결과를 UART로 송신</div></div>
+      <p>예를 들어 <code>led red</code>와 Enter를 입력하면 Buffer에 <code>"led red\0"</code>이 만들어진다. <code>strcmp()</code>가 명령을 찾으면 <code>currentState</code>를 <code>LED_STATE_ERROR</code>로 바꾸고 빨간색 LED를 켠다.</p>
+
+      <h2 id="result">실행 결과와 확인 상태</h2>
+      <p>Debug 빌드와 <code>02_UART.elf</code> 생성을 확인했다.</p>
+      <table><thead><tr><th>항목</th><th>상태</th></tr></thead><tbody><tr><td>RAM</td><td>2.16% 사용</td></tr><tr><td>FLASH</td><td>3.24% 사용</td></tr><tr><td>기존 보드 기록</td><td>PC 터미널 송수신 및 <code>led red</code> 명령의 LED 제어 확인</td></tr><tr><td>현재 <code>printf()</code></td><td><code>_write()</code> 연결 후 실제 터미널 출력 재확인 필요</td></tr></tbody></table>
+      <pre><code>cmake --preset Debug
+cmake --build build/Debug</code></pre>
+
+      <h2 id="learned">배운 점</h2>
+      <ul><li>USART2와 ST-LINK Virtual COM Port를 이용하면 별도 USB-UART Module 없이 PC와 통신할 수 있다.</li><li><code>HAL_UART_Receive_IT()</code>는 Main Loop를 막지 않고 한 바이트 수신을 등록한다.</li><li>수신 완료 Callback에서는 다음 수신을 반드시 다시 등록해야 한다.</li><li>Enter를 기준으로 여러 바이트를 하나의 C 문자열 명령으로 만들 수 있다.</li><li>Interrupt와 Main Loop가 공유하는 상태에는 <code>volatile</code>이 필요하다.</li><li><code>_write()</code>를 USART2 송신에 연결하면 기존 <code>printf()</code> 형식을 사용할 수 있다.</li></ul>
+
+      <h2 id="summary">한 줄 정리</h2>
+      <p class="summary"><strong>USART2 Interrupt로 문자를 한 바이트씩 받아 문자열 명령을 만들고, Main Loop에서 명령에 맞는 LED 상태를 제어하도록 구현했다.</strong></p>
+    </article>
+  </main>
+</body>
+</html>

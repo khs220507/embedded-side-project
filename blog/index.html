@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 임베디드 학습 블로그</title>
+  <style>
+    :root { --text:#222; --muted:#666; --line:#e5e5e5; --primary:#2563eb; --soft:#f6f8fa; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--text); background:#fff; font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; word-break:keep-all; }
+    .hero { padding:56px 24px 36px; border-bottom:1px solid var(--line); }
+    .hero-inner, main { width:min(820px,calc(100% - 40px)); margin:0 auto; }
+    .eyebrow { margin:0 0 6px; color:var(--primary); font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    h1 { margin:0; font-size:clamp(34px,6vw,46px); line-height:1.2; letter-spacing:-.035em; }
+    .hero-description { max-width:680px; margin:12px 0 0; color:var(--muted); }
+    main { padding:36px 0 72px; }
+    h2 { margin:52px 0 16px; padding-top:42px; border-top:1px solid var(--line); font-size:28px; letter-spacing:-.025em; }
+    h2:first-child { margin-top:0; padding-top:0; border-top:0; }
+    .documents { border-top:1px solid var(--line); }
+    .document { display:grid; grid-template-columns:150px 1fr auto; gap:18px; align-items:start; padding:20px 0; border-bottom:1px solid var(--line); }
+    .document h3 { margin:0; font-size:20px; }
+    .document p { margin:0; color:var(--muted); }
+    .links { display:flex; gap:8px; white-space:nowrap; }
+    a { color:var(--primary); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .links a { padding:4px 9px; border:1px solid var(--line); border-radius:5px; font-size:14px; }
+    .note { margin-top:30px; padding:14px 16px; border-left:3px solid var(--primary); background:var(--soft); }
+    code { padding:2px 5px; border-radius:4px; color:#1d4ed8; background:#eef3ff; font-family:Consolas,"Courier New",monospace; }
+    @media (max-width:700px) { .hero{padding:40px 20px 28px}.hero-inner,main{width:min(100% - 28px,820px)}.document{grid-template-columns:1fr;gap:7px}.links{white-space:normal}h2{font-size:25px} }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Embedded Study Note</p>
+      <h1>STM32 임베디드 학습 블로그</h1>
+      <p class="hero-description">직접 구현한 STM32 프로젝트의 기반 개념과 주변장치 학습 기록을 한곳에서 확인한다.</p>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>기반 지식</h2>
+      <div class="documents">
+        <article class="document"><h3>C 언어</h3><p>포인터, 구조체와 레지스터, <code>enum</code> 상태 머신, 고정 폭 정수형</p><div class="links"><a href="fundamentals/C.html">HTML</a><a href="fundamentals/C.md">Markdown</a></div></article>
+        <article class="document"><h3>HAL</h3><p>프로젝트에서 사용한 STM32 HAL 함수, Macro와 Handle</p><div class="links"><a href="fundamentals/HAL.html">HTML</a><a href="fundamentals/HAL.md">Markdown</a></div></article>
+        <article class="document"><h3>CMSIS</h3><p>HAL보다 낮은 CMSIS-Core 계층과 <code>__WFI()</code></p><div class="links"><a href="fundamentals/CMSIS.html">HTML</a><a href="fundamentals/CMSIS.md">Markdown</a></div></article>
+      </div>
+    </section>
+    <section>
+      <h2>기술 학습</h2>
+      <div class="documents">
+        <article class="document"><h3>GPIO</h3><p>GPIO 출력, 다중 LED 상태와 Button Debouncing</p><div class="links"><a href="technologies/GPIO.html">HTML</a><a href="technologies/GPIO.md">Markdown</a></div></article>
+        <article class="document"><h3>UART</h3><p>Polling/Interrupt 송수신, 문자열 명령과 <code>printf()</code> 연결</p><div class="links"><a href="technologies/UART.html">HTML</a><a href="technologies/UART.md">Markdown</a></div></article>
+        <article class="document"><h3>DMA</h3><p>UART RX/TX DMA, Stream/Channel, IRQ와 Callback</p><div class="links"><a href="technologies/DMA.html">HTML</a><a href="technologies/DMA.md">Markdown</a></div></article>
+        <article class="document"><h3>ADC</h3><p>CdS Analog Input, 12-bit 단일 변환과 Polling Sampling</p><div class="links"><a href="technologies/ADC.html">HTML</a><a href="technologies/ADC.md">Markdown</a></div></article>
+      </div>
+    </section>
+    <p class="note">현재 학습 위치는 ADC CdS 구현·빌드 완료, 보드 검증 대기 단계다. 전체 상태는 <a href="../LEARNING_PROGRESS.md">LEARNING_PROGRESS.md</a>에서 관리한다.</p>
+  </main>
+</body>
+</html>

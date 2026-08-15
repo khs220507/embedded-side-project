@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 ADC: CdS 조도 센서 측정</title>
+  <style>
+    :root{--text:#222;--muted:#666;--line:#e5e5e5;--primary:#2563eb;--soft:#f6f8fa}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--text);background:#fff;font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;word-break:keep-all}.hero{padding:56px 24px 36px;border-bottom:1px solid var(--line)}.hero-inner,main{width:min(820px,calc(100% - 40px));margin:0 auto}.eyebrow{margin:0 0 6px;color:var(--primary);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}h1{margin:0;font-size:clamp(34px,6vw,46px);line-height:1.2;letter-spacing:-.035em}.hero-description{max-width:650px;margin:12px 0 0;color:var(--muted)}main{padding:32px 0 72px}.toc{display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:44px;padding-bottom:24px;border-bottom:1px solid var(--line)}.toc a{color:var(--muted);font-size:14px;text-decoration:none}.toc a:hover{color:var(--primary)}h2,h3{scroll-margin-top:24px;line-height:1.35;letter-spacing:-.025em}h2{margin:0 0 18px;font-size:28px}h2:not(:first-child){margin-top:64px;padding-top:48px;border-top:1px solid var(--line)}h3{margin:38px 0 12px;font-size:20px}p{margin:12px 0}code{padding:2px 5px;border-radius:4px;color:#1d4ed8;background:#eef3ff;font-family:Consolas,"Courier New",monospace;font-size:.92em}pre{overflow-x:auto;margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:6px;color:#24292f;background:var(--soft);line-height:1.6}pre code{padding:0;color:inherit;background:transparent;font-size:14px}.flow-steps{display:flex;align-items:stretch;margin:20px 0;overflow-x:auto}.flow-step{display:flex;min-width:135px;flex:1;align-items:center;justify-content:center;padding:12px;border:1px solid var(--line);background:#fff;font-size:14px;font-weight:650;text-align:center}.flow-step+.flow-step{border-left:0}.flow-step:first-child{border-radius:6px 0 0 6px}.flow-step:last-child{border-radius:0 6px 6px 0}table{width:100%;margin:16px 0;border:1px solid var(--line);border-collapse:collapse;table-layout:fixed}th,td{padding:10px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:var(--soft);font-size:14px}ul{padding-left:24px}.summary{margin-top:24px;padding:14px 16px;border-left:3px solid var(--primary);background:var(--soft)}@media(max-width:700px){.hero{padding:40px 20px 28px}.hero-inner,main{width:min(100% - 28px,820px)}main{padding-top:24px}.toc{gap:7px 14px;margin-bottom:36px}h2{font-size:25px}h3{font-size:19px}table{font-size:14px}th,td{padding:8px 10px}.flow-step{min-width:120px}}
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 ADC: CdS 조도 센서 측정</h1><p class="hero-description">PA0의 Analog Output을 12-bit 값으로 변환하고 UART로 확인하는 범위를 정리한다.</p></div></header>
+  <main>
+    <nav class="toc" aria-label="문서 목차"><a href="#concept">기본 개념</a><a href="#goal">구현 목표</a><a href="#wiring">배선</a><a href="#code">핵심 코드</a><a href="#flow">동작 흐름</a><a href="#level">LED 단계</a><a href="#result">검증 상태</a><a href="#summary">정리</a></nav>
+    <article>
+      <h2 id="concept">기본 개념</h2>
+      <p>ADC는 <code>Analog-to-Digital Converter</code>의 약자로, 연속적인 전압을 MCU가 처리할 수 있는 정수값으로 변환한다. <code>04_ADC_CdS</code>에서는 CdS 모듈의 Analog Output을 PA0(<code>ADC1_IN0</code>, Arduino A0)에서 읽는다.</p>
+      <p>12-bit 결과 범위는 0~4095이며, 현재 코드는 기준 전압을 3300mV로 가정해 <code>원시값 × 3300 ÷ 4095</code>로 전압을 계산한다. 실제 VDDA와 ADC 오차를 보정한 정밀 측정값은 아니다.</p>
+
+      <h2 id="goal">구현 목표</h2>
+      <ul><li>PA0를 <code>ADC1_IN0</code> Analog Input으로 사용한다.</li><li>ADC1을 12-bit 단일 변환, Software Trigger 방식으로 설정한다.</li><li>500ms마다 CdS 값을 측정한다.</li><li>원시값과 환산 전압을 USART2 DMA 기반 <code>printf()</code>로 출력한다.</li></ul>
+
+      <h2 id="wiring">배선</h2>
+      <table><thead><tr><th>CdS 모듈</th><th>NUCLEO-F401RE</th><th>역할</th></tr></thead><tbody><tr><td><code>VCC</code></td><td><code>3.3V</code></td><td>센서 전원</td></tr><tr><td><code>GND</code></td><td><code>GND</code></td><td>공통 기준 전압</td></tr><tr><td><code>AO</code></td><td><code>A0</code> / <code>PA0</code></td><td>ADC1 Channel 0 입력</td></tr></tbody></table>
+      <p>ADC 입력에 3.3V를 넘는 전압이 들어가지 않도록 모듈도 3.3V로 구동한다. 모듈의 <code>DO</code>는 이번 구현에서 사용하지 않는다.</p>
+
+      <h2 id="code">핵심 코드</h2>
+      <h3>ADC1 초기화</h3>
+      <pre><code>hadc1.Instance = ADC1;
+hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+hadc1.Init.ScanConvMode = DISABLE;
+hadc1.Init.ContinuousConvMode = DISABLE;
+hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+hadc1.Init.NbrOfConversion = 1;
+
+channelConfig.Channel = ADC_CHANNEL_0;
+channelConfig.Rank = 1;
+channelConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;</code></pre>
+      <p>APB2 84MHz를 4분주한 21MHz ADC Clock을 사용한다. 한 Channel만 읽으므로 Scan과 Continuous Conversion을 끄고 측정 시점마다 Software로 변환을 시작한다.</p>
+
+      <h3>단일 값 읽기</h3>
+      <pre><code>HAL_ADC_Start(&amp;hadc1);
+HAL_ADC_PollForConversion(&amp;hadc1, 10U);
+rawValue = HAL_ADC_GetValue(&amp;hadc1);
+HAL_ADC_Stop(&amp;hadc1);</code></pre>
+      <p>변환을 시작하고 완료를 Polling한 뒤, 성공했을 때만 12-bit 결과를 읽고 ADC를 정지한다.</p>
+
+      <h3>500ms 주기 출력</h3>
+      <pre><code>if ((HAL_GetTick() - lastSensorSampleTime) &gt;= 500U)
+{
+    uint32_t rawValue;
+    lastSensorSampleTime = HAL_GetTick();
+
+    if (ADC_ReadCdS(&amp;rawValue) == HAL_OK)
+    {
+        uint32_t millivolts = (rawValue * 3300U) / 4095U;
+        currentState = CdS_GetBrightnessState(rawValue);
+        LED_ShowState(currentState);
+        printf("CdS raw=%lu, voltage=%lu mV, brightness=%s\r\n",
+               (unsigned long)rawValue,
+               (unsigned long)millivolts,
+               CdS_GetBrightnessName(currentState));
+    }
+}</code></pre>
+      <p><code>HAL_Delay()</code> 대신 Tick 차이를 사용하므로 기존 버튼 입력과 UART 명령 처리도 계속 실행된다.</p>
+
+      <h2 id="flow">동작 흐름</h2>
+      <div class="flow-steps"><div class="flow-step">CdS AO</div><div class="flow-step">PA0 / ADC1_IN0</div><div class="flow-step">12-bit 변환</div><div class="flow-step">mV 환산</div><div class="flow-step">USART2 출력</div></div>
+      <pre><code>CdS raw=252, voltage=203 mV, brightness=BRIGHT</code></pre>
+      <p>위 숫자는 실제 밝은 상태에서 확인한 예이며, 센서와 조명 환경에 따라 달라진다.</p>
+
+      <h2 id="level">조도 단계 LED 표시</h2>
+      <p>밝을 때 <code>raw=252~308</code>, 어두울 때 <code>raw=3657~3881</code>을 실제로 측정했다. 이 모듈은 ADC 값이 클수록 어두운 상태이므로, 두 끝값 사이를 네 구간으로 나눠 기존 4색 LED 회로에 연결했다.</p>
+      <table><thead><tr><th>ADC 원시값</th><th>상태 문자열</th><th>LED</th></tr></thead><tbody><tr><td>0~1200</td><td><code>BRIGHT</code></td><td>초록</td></tr><tr><td>1201~2100</td><td><code>NORMAL</code></td><td>파랑</td></tr><tr><td>2101~3000</td><td><code>DIM</code></td><td>노랑</td></tr><tr><td>3001~4095</td><td><code>DARK</code></td><td>빨강</td></tr></tbody></table>
+      <pre><code>currentState = CdS_GetBrightnessState(rawValue);
+LED_ShowState(currentState);</code></pre>
+      <p>500ms마다 새 ADC 값으로 LED 상태를 갱신하므로, 이전 UART LED 명령이나 버튼으로 바꾼 LED는 다음 센서 측정 때 조도 상태로 다시 바뀐다.</p>
+
+      <h2 id="result">현재 검증 상태</h2>
+      <table><thead><tr><th>항목</th><th>상태</th></tr></thead><tbody><tr><td>ADC1 Channel 0, 500ms 측정, UART 출력</td><td>구현 완료</td></tr><tr><td><code>04_ADC_CdS.elf</code></td><td>LED 단계 표시 버전 Debug 빌드 완료</td></tr><tr><td>NUCLEO-F401RE Flash·Verify</td><td>ADC 출력 버전 완료</td></tr><tr><td>기본 UART 측정</td><td><code>raw=587~588</code>, <code>473mV</code> 확인</td></tr><tr><td>어두운 상태</td><td><code>raw=3657~3881</code>, <code>2.947~3.127V</code> 확인</td></tr><tr><td>밝은 상태</td><td><code>raw=252~308</code>, <code>203~248mV</code> 확인</td></tr><tr><td>조도 단계 LED 표시</td><td>Flash·보드 검증 필요</td></tr></tbody></table>
+      <p>밝은 상태에서 ADC 값이 낮고, 어두운 상태에서 높아지는 것을 확인했다. 새 Firmware를 Flash한 뒤 각 조도 구간에서 LED와 <code>brightness</code> 출력이 일치하는지 확인한다.</p>
+
+      <h2 id="summary">배운 점</h2>
+      <ul><li>Analog Input은 HIGH/LOW가 아니라 전압 범위를 수치로 표현한다.</li><li>12-bit ADC는 입력 범위를 4096단계로 나눈다.</li><li>Channel은 물리 입력 경로이고 Rank는 변환 순서다.</li><li>Polling 방식은 단순하지만 완료될 때까지 CPU가 기다린다.</li><li>센서 임계값은 실제 측정 범위를 확인한 후 정해야 한다.</li></ul>
+      <h3>한 줄 정리</h3>
+      <p class="summary"><strong>PA0의 CdS Analog Output을 ADC1의 12-bit 값으로 변환하고, 500ms마다 원시값과 환산 전압을 UART로 확인한다.</strong></p>
+    </article>
+  </main>
+</body>
+</html>

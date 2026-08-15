@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 DMA: UART 송수신과 ReceiveToIdle</title>
+  <style>
+    :root{--text:#222;--muted:#666;--line:#e5e5e5;--primary:#2563eb;--soft:#f6f8fa}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--text);background:#fff;font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;word-break:keep-all}.hero{padding:56px 24px 36px;border-bottom:1px solid var(--line)}.hero-inner,main{width:min(820px,calc(100% - 40px));margin:0 auto}.eyebrow{margin:0 0 6px;color:var(--primary);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}h1{margin:0;font-size:clamp(34px,6vw,46px);line-height:1.2;letter-spacing:-.035em}.hero-description{max-width:680px;margin:12px 0 0;color:var(--muted)}main{padding:32px 0 72px}.toc{display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:44px;padding-bottom:24px;border-bottom:1px solid var(--line)}.toc a{color:var(--muted);font-size:14px;text-decoration:none}.toc a:hover{color:var(--primary)}h2{margin:64px 0 18px;padding-top:48px;border-top:1px solid var(--line);font-size:28px;line-height:1.35;letter-spacing:-.025em;scroll-margin-top:24px}h2:first-child{margin-top:0;padding-top:0;border-top:0}h3{margin:34px 0 12px;font-size:20px;line-height:1.45}p{margin:12px 0}code{padding:2px 5px;border-radius:4px;color:#1d4ed8;background:#eef3ff;font-family:Consolas,"Courier New",monospace;font-size:.92em}pre{overflow-x:auto;margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:6px;color:#24292f;background:var(--soft);line-height:1.6}pre code{padding:0;color:inherit;background:transparent;font-size:14px}table{width:100%;margin:16px 0;border:1px solid var(--line);border-collapse:collapse;table-layout:fixed}th,td{padding:10px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:var(--soft);font-size:14px}ul{padding-left:24px}.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:20px 0;counter-reset:flow}.flow-step{min-width:0;padding:12px;border:1px solid var(--line);border-top:3px solid var(--primary);border-radius:6px;background:#fff;overflow-wrap:anywhere}.flow-step::before{counter-increment:flow;content:counter(flow);display:block;margin-bottom:4px;color:var(--primary);font-size:13px;font-weight:700}.note,.summary{margin-top:20px;padding:14px 16px;border-left:3px solid var(--primary);background:var(--soft)}@media(max-width:700px){.hero{padding:40px 20px 28px}.hero-inner,main{width:min(100% - 28px,820px)}main{padding-top:24px}h2{font-size:25px}table{font-size:14px}th,td{padding:8px 10px}.flow{grid-template-columns:1fr 1fr}}@media(max-width:440px){.flow{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 DMA: UART 송수신과 ReceiveToIdle</h1><p class="hero-description">DMA1이 USART2와 Memory 사이의 RX/TX 데이터를 이동하도록 구현한 과정을 정리한다.</p></div></header>
+  <main>
+    <nav class="toc" aria-label="문서 목차"><a href="#concept">기본 개념</a><a href="#goal">구현 목표</a><a href="#code">핵심 코드</a><a href="#explanation">코드 설명</a><a href="#compare">방식 비교</a><a href="#flow">동작 흐름</a><a href="#result">실행 결과</a><a href="#learned">배운 점</a><a href="#summary">한 줄 정리</a></nav>
+    <article>
+      <h2 id="concept">기본 개념</h2>
+      <p>DMA(Direct Memory Access)는 CPU 대신 Peripheral과 Memory 사이의 데이터를 옮기는 하드웨어다. CPU는 방향, Buffer 주소와 크기를 설정하고 DMA는 실제 이동을 수행한 뒤 Interrupt로 완료를 알린다.</p>
+      <div class="flow"><div class="flow-step">CPU가 DMA 설정</div><div class="flow-step">DMA 전송 시작</div><div class="flow-step">Peripheral ↔ Memory 이동</div><div class="flow-step">IRQ와 Callback 처리</div></div>
+      <table><thead><tr><th>용어</th><th>의미</th></tr></thead><tbody><tr><td>DMA Controller</td><td>여러 DMA Stream을 관리하는 장치</td></tr><tr><td>Stream</td><td>실제 전송을 수행하는 통로</td></tr><tr><td>Channel</td><td>Stream에 Peripheral 요청을 연결하는 선택 값</td></tr><tr><td>Direction</td><td>Peripheral과 Memory 사이의 전송 방향</td></tr><tr><td>Normal Mode</td><td>한 번의 전송 후 정지하는 Mode</td></tr></tbody></table>
+
+      <h2 id="goal">구현 목표</h2>
+      <p><code>03_UART_DMA</code>에서는 기존 문자열 LED 명령을 유지하면서 USART2 RX와 TX 데이터 이동을 DMA1에 맡긴다.</p>
+      <table><thead><tr><th>방향</th><th>DMA 자원</th><th>데이터 이동</th></tr></thead><tbody><tr><td>RX</td><td>DMA1 Stream5, Channel 4</td><td>USART2 Data Register → RX Buffer</td></tr><tr><td>TX</td><td>DMA1 Stream6, Channel 4</td><td>TX Buffer → USART2 Data Register</td></tr></tbody></table>
+
+      <h2 id="code">핵심 코드</h2>
+      <h3>RX/TX DMA 설정</h3>
+      <pre><code>hdma_usart2_rx.Instance = DMA1_Stream5;
+hdma_usart2_rx.Init.Channel = DMA_CHANNEL_4;
+hdma_usart2_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+hdma_usart2_rx.Init.PeriphInc = DMA_PINC_DISABLE;
+hdma_usart2_rx.Init.MemInc = DMA_MINC_ENABLE;
+hdma_usart2_rx.Init.Mode = DMA_NORMAL;</code></pre>
+      <pre><code>hdma_usart2_tx.Instance = DMA1_Stream6;
+hdma_usart2_tx.Init.Channel = DMA_CHANNEL_4;
+hdma_usart2_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+hdma_usart2_tx.Init.PeriphInc = DMA_PINC_DISABLE;
+hdma_usart2_tx.Init.MemInc = DMA_MINC_ENABLE;
+hdma_usart2_tx.Init.Mode = DMA_NORMAL;</code></pre>
+
+      <h3>UART와 DMA Handle 연결</h3>
+      <pre><code>__HAL_LINKDMA(huart, hdmarx, hdma_usart2_rx);
+__HAL_LINKDMA(huart, hdmatx, hdma_usart2_tx);</code></pre>
+
+      <h3>DMA Clock과 NVIC</h3>
+      <pre><code>__HAL_RCC_DMA1_CLK_ENABLE();
+
+HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+
+HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);</code></pre>
+
+      <h3>ReceiveToIdle DMA 수신</h3>
+      <pre><code>static void UART_StartDmaReceive(void)
+{
+    if (HAL_UARTEx_ReceiveToIdle_DMA(&amp;huart2,
+                                     uartDmaRxBuffer,
+                                     UART_RX_BUFFER_SIZE) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    __HAL_DMA_DISABLE_IT(&amp;hdma_usart2_rx, DMA_IT_HT);
+}</code></pre>
+      <pre><code>void HAL_UARTEx_RxEventCallback(
+    UART_HandleTypeDef *huart,
+    uint16_t size)
+{
+    if (huart-&gt;Instance == USART2)
+    {
+        UART_StoreReceivedData(uartDmaRxBuffer, size);
+        UART_StartDmaReceive();
+    }
+}</code></pre>
+
+      <h3>DMA Buffer와 명령 Buffer</h3>
+      <pre><code>static uint8_t uartDmaRxBuffer[UART_RX_BUFFER_SIZE];
+static char uartRxBuffer[UART_RX_BUFFER_SIZE];</code></pre>
+      <ul><li><code>uartDmaRxBuffer</code>: DMA가 직접 기록하는 임시 Buffer</li><li><code>uartRxBuffer</code>: 여러 DMA Event의 문자를 Enter까지 누적하는 C 문자열 Buffer</li></ul>
+
+      <h3>DMA 송신과 완료 Callback</h3>
+      <pre><code>memcpy(uartDmaTxBuffer, &amp;ptr[sent], chunkSize);
+uartDmaTxComplete = 0U;
+
+if (HAL_UART_Transmit_DMA(&amp;huart2,
+                          uartDmaTxBuffer,
+                          chunkSize) != HAL_OK)
+{
+    return -1;
+}
+
+while (uartDmaTxComplete == 0U)
+{
+    __WFI();
+}</code></pre>
+      <pre><code>void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart-&gt;Instance == USART2)
+    {
+        uartDmaTxComplete = 1U;
+    }
+}</code></pre>
+      <p>현재 <code>_write()</code>는 DMA로 데이터를 옮기지만 완료 Callback까지 기다리므로 호출 방식은 동기식이다. <code>__WFI()</code>는 <a href="../fundamentals/CMSIS.html">CMSIS 문서</a>에서 별도로 다룬다.</p>
+
+      <h2 id="explanation">코드 설명</h2>
+      <h3>RX와 TX 주소 이동</h3>
+      <div class="note">RX: 고정된 USART2 Data Register → 증가하는 RX Buffer 주소<br>TX: 증가하는 TX Buffer 주소 → 고정된 USART2 Data Register</div>
+      <p>UART는 같은 Data Register를 계속 사용하므로 Peripheral 주소는 증가하지 않는다. 배열은 다음 위치로 이동하며 저장하거나 읽어야 하므로 Memory 주소는 증가한다.</p>
+      <h3>Normal Mode 재등록</h3>
+      <p>RX와 TX는 <code>DMA_NORMAL</code>이다. 한 번의 전송이 끝나면 Stream이 정지하므로 RX Event Callback에서 <code>UART_StartDmaReceive()</code>를 다시 호출한다.</p>
+      <h3>DMA IRQ와 UART IRQ</h3>
+      <p>DMA Stream IRQ는 Transfer Complete와 DMA Error를 처리하고, USART2 IRQ는 IDLE 감지와 UART의 최종 Transmission Complete 등을 처리한다.</p>
+      <div class="flow"><div class="flow-step">Hardware Event</div><div class="flow-step">DMA 또는 USART2 IRQ</div><div class="flow-step">HAL IRQ Handler</div><div class="flow-step">UART DMA Callback</div></div>
+
+      <h2 id="compare">Interrupt 방식과 DMA 방식 비교</h2>
+      <table><thead><tr><th>항목</th><th>Interrupt 수신</th><th>DMA 수신</th></tr></thead><tbody><tr><td>데이터 이동</td><td>CPU가 한 바이트씩 처리</td><td>DMA가 여러 바이트를 Buffer로 이동</td></tr><tr><td>Callback 입력</td><td><code>receivedByte</code></td><td>Buffer와 실제 수신 크기</td></tr><tr><td>완료 처리</td><td>바이트마다 Callback</td><td>IDLE 또는 Buffer 완료 Event</td></tr><tr><td>다음 수신</td><td>한 바이트씩 재등록</td><td>Normal Mode 수신 재등록</td></tr><tr><td>프로젝트</td><td><code>02_UART</code></td><td><code>03_UART_DMA</code></td></tr></tbody></table>
+
+      <h2 id="flow">동작 흐름</h2>
+      <div class="flow"><div class="flow-step">RX DMA 등록</div><div class="flow-step">Stream5가 RX Buffer에 저장</div><div class="flow-step">IDLE 또는 완료 Event</div><div class="flow-step">RX Event Callback</div><div class="flow-step">문자열 명령 완성</div><div class="flow-step">Main Loop에서 LED 제어</div><div class="flow-step">Stream6 TX 송신</div><div class="flow-step">TX 완료 Callback</div></div>
+
+      <h2 id="result">실행 결과</h2>
+      <ul><li><code>02_UART</code>와 <code>03_UART_DMA</code>의 Debug 빌드 및 ELF 생성을 확인했다.</li><li>STM32CubeProgrammer에서 <code>03_UART_DMA.elf</code>의 Flash 기록과 Verify를 완료했다.</li><li>실제 NUCLEO-F401RE에서 UART DMA 송수신과 문자열 LED 명령 동작을 확인했다.</li></ul>
+
+      <h2 id="learned">배운 점</h2>
+      <ul><li>DMA는 CPU 대신 Peripheral과 Memory 사이의 데이터를 이동한다.</li><li>STM32F4에서는 Peripheral 요청에 맞는 Stream과 Channel 조합을 선택해야 한다.</li><li>DMA에는 Clock, NVIC, IRQ Handler와 Callback이 필요하다.</li><li><code>ReceiveToIdle DMA</code>는 길이가 일정하지 않은 UART 데이터에 사용할 수 있다.</li><li>DMA Buffer와 애플리케이션 Buffer는 목적에 따라 분리할 수 있다.</li><li>DMA 함수가 Non-blocking이어도 호출 코드가 기다리면 전체 동작은 동기식이 될 수 있다.</li></ul>
+
+      <h2 id="summary">한 줄 정리</h2>
+      <p class="summary"><strong>USART2와 Memory 사이의 데이터 이동을 DMA1에 맡기고, CPU는 수신이 끝난 문자열 명령과 완료 Event를 처리하도록 구현했다.</strong></p>
+    </article>
+  </main>
+</body>
+</html>

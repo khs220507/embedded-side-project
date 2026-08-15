@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 CMSIS: __WFI()로 Interrupt 대기</title>
+  <style>
+    :root{--text:#222;--muted:#666;--line:#e5e5e5;--primary:#2563eb;--soft:#f6f8fa}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--text);background:#fff;font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;word-break:keep-all}.hero{padding:56px 24px 36px;border-bottom:1px solid var(--line)}.hero-inner,main{width:min(820px,calc(100% - 40px));margin:0 auto}.eyebrow{margin:0 0 6px;color:var(--primary);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}h1{margin:0;font-size:clamp(34px,6vw,46px);line-height:1.2;letter-spacing:-.035em}.hero-description{max-width:680px;margin:12px 0 0;color:var(--muted)}main{padding:32px 0 72px}.toc{display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:44px;padding-bottom:24px;border-bottom:1px solid var(--line)}.toc a{color:var(--muted);font-size:14px;text-decoration:none}.toc a:hover{color:var(--primary)}h2{margin:64px 0 18px;padding-top:48px;border-top:1px solid var(--line);font-size:28px;line-height:1.35;letter-spacing:-.025em;scroll-margin-top:24px}h2:first-child{margin-top:0;padding-top:0;border-top:0}p{margin:12px 0}code{padding:2px 5px;border-radius:4px;color:#1d4ed8;background:#eef3ff;font-family:Consolas,"Courier New",monospace;font-size:.92em}pre{overflow-x:auto;margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:6px;color:#24292f;background:var(--soft);line-height:1.6}pre code{padding:0;color:inherit;background:transparent;font-size:14px}ul{padding-left:24px}.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:20px 0;counter-reset:flow}.flow-step{min-width:0;padding:12px;border:1px solid var(--line);border-top:3px solid var(--primary);border-radius:6px;background:#fff;overflow-wrap:anywhere}.flow-step::before{counter-increment:flow;content:counter(flow);display:block;margin-bottom:4px;color:var(--primary);font-size:13px;font-weight:700}.note,.summary{margin-top:20px;padding:14px 16px;border-left:3px solid var(--primary);background:var(--soft)}@media(max-width:700px){.hero{padding:40px 20px 28px}.hero-inner,main{width:min(100% - 28px,820px)}main{padding-top:24px}h2{font-size:25px}.flow{grid-template-columns:1fr 1fr}}@media(max-width:440px){.flow{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 CMSIS: __WFI()로 Interrupt 대기</h1><p class="hero-description">UART DMA 송신 완료를 기다릴 때 사용하는 Cortex-M4의 Wait For Interrupt 명령을 정리한다.</p></div></header>
+  <main>
+    <nav class="toc" aria-label="문서 목차"><a href="#concept">기본 개념</a><a href="#goal">구현 목표</a><a href="#code">핵심 코드</a><a href="#explanation">코드 설명</a><a href="#caution">주의 사항</a><a href="#result">실행 결과</a><a href="#learned">배운 점</a><a href="#summary">한 줄 정리</a></nav>
+    <article>
+      <h2 id="concept">기본 개념</h2>
+      <p>CMSIS(Cortex Microcontroller Software Interface Standard)는 ARM Cortex-M Processor를 공통된 이름과 Interface로 사용할 수 있게 하는 표준 계층이다. STM32 HAL이 UART와 DMA 같은 STM32 주변장치를 다룬다면 CMSIS-Core는 Cortex-M CPU Register와 명령을 다룬다.</p>
+      <div class="flow"><div class="flow-step">Application Code</div><div class="flow-step">STM32 HAL Peripheral 제어</div><div class="flow-step">CMSIS-Core CPU 기능</div><div class="flow-step">Cortex-M4 Processor</div></div>
+
+      <h2 id="goal">구현 목표</h2>
+      <p><code>03_UART_DMA</code>의 <code>_write()</code>에서 DMA 송신이 끝날 때까지 CPU가 빈 반복문을 계속 실행하지 않도록 <code>__WFI()</code>를 사용한다.</p>
+
+      <h2 id="code">핵심 코드</h2>
+      <pre><code>while (uartDmaTxComplete == 0U)
+{
+    __WFI();
+}</code></pre>
+      <p>GCC용 CMSIS Header에는 다음과 같이 정의되어 있다.</p>
+      <pre><code>#define __WFI() __ASM volatile ("wfi":::"memory")</code></pre>
+      <p><code>__WFI()</code>는 C 표준 함수나 STM32 HAL 함수가 아니다. CMSIS가 제공하는 Compiler Intrinsic Macro이며 ARM의 <code>WFI</code>(Wait For Interrupt) 명령을 생성한다.</p>
+
+      <h2 id="explanation">코드 설명과 동작 흐름</h2>
+      <p><code>uartDmaTxComplete</code>가 <code>0U</code>이면 DMA 송신이 아직 끝나지 않은 상태다. CPU는 <code>__WFI()</code>를 실행하고 Interrupt가 발생할 때까지 대기한다.</p>
+      <div class="flow"><div class="flow-step">DMA 송신 시작</div><div class="flow-step"><code>__WFI()</code> 대기</div><div class="flow-step">DMA 또는 USART2 IRQ</div><div class="flow-step">TX Callback에서 완료 Flag 설정</div></div>
+      <p class="note">CPU를 깨운 Interrupt가 반드시 UART TX 완료라는 보장은 없다. 따라서 깨어난 뒤 <code>while</code> 조건으로 완료 Flag를 다시 확인한다.</p>
+
+      <h2 id="caution">주의 사항</h2>
+      <ul><li>DMA와 USART2 IRQ가 활성화되어 있어야 TX 완료 Callback이 실행된다.</li><li>Interrupt가 비활성화되어 완료 Flag가 바뀌지 않으면 <code>_write()</code>가 계속 대기한다.</li><li>현재 코드는 불필요한 반복 연산은 줄이지만 호출자가 송신 완료까지 기다리는 동기식 구조다.</li><li>완전한 Non-blocking 송신에는 TX Queue나 Ring Buffer가 필요하다.</li></ul>
+
+      <h2 id="result">실행 결과</h2>
+      <p><code>__WFI()</code>가 포함된 <code>03_UART_DMA</code>의 Debug 빌드, Flash 기록과 Verify를 완료했다. 실제 보드에서 DMA 송신 완료 Callback이 Flag를 변경하고 <code>_write()</code>의 대기가 정상적으로 해제되어 UART 출력이 이어지는 것을 확인했다.</p>
+
+      <h2 id="learned">배운 점</h2>
+      <ul><li><code>__WFI()</code>는 HAL 함수가 아니라 CMSIS-Core가 제공하는 CPU Intrinsic이다.</li><li><code>WFI</code>는 Interrupt가 발생할 때까지 Processor 실행을 대기시킨다.</li><li>CPU가 깨어난 뒤에는 원하는 작업이 완료됐는지 Flag를 다시 검사해야 한다.</li><li>DMA 전송과 <code>__WFI()</code> 대기는 IRQ와 Callback이 정상적으로 연결되어 있어야 동작한다.</li></ul>
+
+      <h2 id="summary">한 줄 정리</h2>
+      <p class="summary"><strong><code>__WFI()</code>는 DMA 송신 완료 Flag를 기다리는 동안 Cortex-M4가 불필요한 반복 연산을 하지 않고 Interrupt를 기다리게 한다.</strong></p>
+    </article>
+  </main>
+</body>
+</html>

@@ -45,4 +45,4 @@ cmake --build build/Debug
 
 빌드 결과는 `build/Debug/02_UART.elf`에 생성된다.
 
-상세 학습 내용은 `../blog/UART.md`에서 관리한다.
+상세 학습 내용은 `../blog/technologies/UART.md`에서 관리한다.
