@@ -1,19 +1,20 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>STM32 Timer: TIM2 Interrupt 기반 ADC Sampling</title>
   <style>
-    :root{--text:#222;--muted:#666;--line:#e5e5e5;--primary:#2563eb;--soft:#f6f8fa}*{box-sizing:border-box}body{margin:0;color:var(--text);font:16px/1.7 system-ui,sans-serif;word-break:keep-all}.hero{padding:56px 24px 36px;border-bottom:1px solid var(--line)}.hero-inner,main{width:min(820px,calc(100% - 40px));margin:auto}.eyebrow{margin:0;color:var(--primary);font-size:13px;font-weight:700}h1{margin:6px 0;font-size:clamp(34px,6vw,46px);line-height:1.2}main{padding:32px 0 72px}.toc{display:flex;gap:8px 16px;flex-wrap:wrap;padding-bottom:24px;border-bottom:1px solid var(--line)}.toc a{color:var(--muted);text-decoration:none}h2{margin-top:58px;padding-top:38px;border-top:1px solid var(--line)}h3{margin-top:34px}code{padding:2px 5px;color:#1d4ed8;background:#eef3ff;font-family:Consolas,monospace}pre{overflow:auto;padding:16px;background:var(--soft);border:1px solid var(--line)}pre code{padding:0;color:inherit;background:none}.flow{display:flex;overflow:auto;margin:18px 0}.step{min-width:130px;flex:1;padding:12px;border:1px solid var(--line);text-align:center;font-weight:650}.step+.step{border-left:0}table{width:100%;border-collapse:collapse;table-layout:fixed;margin:16px 0}th,td{padding:10px;border:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}th{background:var(--soft)}.summary{padding:14px;border-left:3px solid var(--primary);background:var(--soft)}@media(max-width:700px){.hero{padding:40px 20px 28px}.hero-inner,main{width:calc(100% - 28px)}}
+    :root{--text:#222;--muted:#666;--line:#e5e5e5;--primary:#2563eb;--soft:#f6f8fa}*{box-sizing:border-box}body{margin:0;color:var(--text);font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;word-break:keep-all}.hero{padding:56px 24px 36px;border-bottom:1px solid var(--line)}.hero-inner,main{width:min(820px,calc(100% - 40px));margin:auto}.eyebrow{margin:0;color:var(--primary);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}h1{margin:6px 0;font-size:clamp(34px,6vw,46px);line-height:1.2}main{padding:32px 0 72px}.toc{display:flex;flex-wrap:wrap;gap:8px 16px;padding-bottom:24px;border-bottom:1px solid var(--line)}.toc a{color:var(--muted);text-decoration:none}h2{margin-top:58px;padding-top:38px;border-top:1px solid var(--line)}h3{margin-top:34px}code{padding:2px 5px;border-radius:4px;color:#1d4ed8;background:#eef3ff;font-family:Consolas,monospace}pre{overflow:auto;padding:16px;border:1px solid var(--line);border-radius:6px;background:var(--soft)}pre code{padding:0;color:inherit;background:none}table{width:100%;margin:16px 0;border-collapse:collapse;table-layout:fixed}th,td{padding:10px;border:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}th{background:var(--soft)}.timer-flow{width:100%;max-width:100%;margin:22px 0;padding:22px;border:1px solid var(--line);border-radius:8px;background:var(--soft);overflow:visible;word-break:break-word}.timer-flow-title{margin:0 0 14px;color:var(--primary);font-size:14px;font-weight:700}.timer-flow-steps{display:flex;flex-direction:column;align-items:stretch;width:100%;max-width:100%}.timer-flow-node{width:100%;max-width:100%;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 14px;border:1px solid #bcd0f8;border-radius:8px;color:#173b7a;background:#fff;text-align:center;font-size:14px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}.timer-flow-node small{margin-top:4px;color:var(--muted);font-size:12px;font-weight:400}.timer-flow-arrow{position:relative;width:2px;height:28px;align-self:center;flex:0 0 28px;background:var(--primary)}.timer-flow-arrow::after{position:absolute;bottom:0;left:50%;width:8px;height:8px;border-right:2px solid var(--primary);border-bottom:2px solid var(--primary);content:"";transform:translateX(-50%) rotate(45deg)}.timer-flow-return{display:flex;align-items:flex-start;gap:12px;width:100%;max-width:100%;margin-top:18px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}.timer-flow-return-icon{display:flex;width:30px;height:30px;flex:0 0 30px;align-items:center;justify-content:center;border:1px solid #bcd0f8;border-radius:50%;color:var(--primary);background:#fff;font-size:20px;font-weight:700}.timer-flow-return-copy{min-width:0;overflow-wrap:anywhere}.timer-flow-return-copy strong,.timer-flow-return-copy small{display:block}.timer-flow-return-copy strong{color:#173b7a}.timer-flow-return-copy small{margin-top:2px}.summary{padding:14px;border-left:3px solid var(--primary);background:var(--soft)}@media(max-width:700px){.hero{padding:40px 20px 28px}.hero-inner,main{width:calc(100% - 28px)}.timer-flow{padding:16px}.timer-flow-node{min-height:58px;padding:9px 10px}.timer-flow-return-copy small{line-height:1.55}}
   </style>
 </head>
 <body>
-  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 Timer: TIM2 Interrupt 기반 ADC Sampling</h1><p>TIM2 Update Interrupt로 CdS 센서의 500ms 측정 시점을 만드는 범위를 정리한다.</p></div></header>
+  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 Timer: TIM2 Interrupt 기반 ADC Sampling</h1><p>TIM2 Update Interrupt가 CdS 센서의 500ms 측정 시점을 만드는 과정을 정리한다.</p></div></header>
   <main>
     <nav class="toc"><a href="#concept">기본 개념</a><a href="#code">핵심 코드</a><a href="#flow">실행 흐름</a><a href="#result">검증 상태</a></nav>
     <article>
       <h2 id="concept">기본 개념</h2>
-      <p>TIM2는 MCU 내부 Clock을 센다. APB1 Timer Clock 84MHz를 Prescaler <code>8399</code>로 나누면 10kHz가 되고, Period <code>4999</code>까지 5,000번 세면 500ms가 된다. 레지스터 값은 실제 계산에서 각각 <code>+1</code>을 적용한다.</p>
+      <p>APB1 Timer Clock 84MHz를 Prescaler <code>8399</code>로 나누면 10kHz가 된다. Period <code>4999</code>까지 5,000번 세므로 TIM2 Update Event는 500ms마다 발생한다.</p>
       <h2 id="code">핵심 코드</h2>
       <pre><code>HAL_TIM_Base_Start_IT(&amp;htim2);</code></pre>
       <p>초기화가 끝난 TIM2 Counter와 Update Interrupt를 실제로 시작한다.</p>
@@ -29,21 +30,30 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         timerSampleRequested = 1U;
     }
 }</code></pre>
-      <pre><code>if (timerSampleRequested != 0U)
-{
-    timerSampleRequested = 0U;
-    CdS_ProcessSample();
-}</code></pre>
-      <h2 id="flow">실행 주체별 흐름</h2>
-      <div class="flow"><div class="step">main()<br>Timer 시작</div><div class="step">TIM2<br>500ms 계수</div><div class="step">MCU 자동 호출<br>IRQ Handler</div><div class="step">HAL Callback<br>Flag = 1</div><div class="step">Main Loop 복귀<br>ADC·LED·UART</div></div>
+      <h2 id="flow">500ms 반복 실행 흐름</h2>
+      <p>위 행은 Interrupt가 발생하는 경로고, 아래 화살표는 Callback이 끝난 뒤 Main Loop로 돌아오는 경로다.</p>
+      <div class="timer-flow" aria-label="TIM2 interrupt flow diagram">
+        <p class="timer-flow-title">Timer가 측정 시점을 만들고 Main Loop가 실제 작업을 처리한다.</p>
+        <div class="timer-flow-steps">
+          <div class="timer-flow-node">main()<small>Timer 시작</small></div><div class="timer-flow-arrow"></div>
+          <div class="timer-flow-node">TIM2<small>500ms 계수</small></div><div class="timer-flow-arrow"></div>
+          <div class="timer-flow-node">TIM2 IRQ<small>MCU 자동 진입</small></div><div class="timer-flow-arrow"></div>
+          <div class="timer-flow-node">HAL Callback<small>Flag = 1</small></div><div class="timer-flow-arrow"></div>
+          <div class="timer-flow-node">Main Loop<small>ADC · LED · UART</small></div>
+        </div>
+        <div class="timer-flow-return">
+          <span class="timer-flow-return-icon" aria-hidden="true">↩</span>
+          <span class="timer-flow-return-copy"><strong>Interrupt 처리 후 원래 코드로 복귀</strong><small>Callback과 <code>TIM2_IRQHandler()</code>가 끝나면 원래 <code>while (1)</code> 위치에서 Flag를 확인한다.</small></span>
+        </div>
+      </div>
       <table><thead><tr><th>단계</th><th>실행 주체</th><th>하는 일</th></tr></thead><tbody>
-        <tr><td>1</td><td><code>main()</code></td><td><code>HAL_TIM_Base_Start_IT()</code>로 Counter를 시작한다.</td></tr>
+        <tr><td>1</td><td><code>main()</code></td><td><code>HAL_TIM_Base_Start_IT()</code>로 TIM2 Counter를 시작한다.</td></tr>
         <tr><td>2</td><td>TIM2 하드웨어</td><td>Main Loop와 별개로 500ms를 센다.</td></tr>
         <tr><td>3</td><td>MCU</td><td>시간이 끝나면 Main Loop를 잠깐 멈추고 <code>TIM2_IRQHandler()</code>를 자동 실행한다.</td></tr>
         <tr><td>4</td><td>HAL Callback</td><td><code>timerSampleRequested = 1U</code>만 설정한다.</td></tr>
-        <tr><td>5</td><td><code>main()</code></td><td>Interrupt가 끝난 뒤 멈췄던 <code>while (1)</code> 자리로 돌아와 ADC·LED·UART를 처리한다.</td></tr>
+        <tr><td>5</td><td><code>main()</code></td><td>Interrupt가 끝난 뒤 원래 <code>while (1)</code> 위치로 돌아와 ADC·LED·UART를 처리한다.</td></tr>
       </tbody></table>
-      <p>Interrupt 안에서는 시간이 걸릴 수 있는 ADC Polling과 <code>printf()</code>를 실행하지 않는다. Callback은 짧게 끝내고 실제 작업은 Main Loop에 맡긴다.</p>
+      <p>Interrupt 안에서는 시간이 걸릴 수 있는 ADC Polling과 <code>printf()</code>를 실행하지 않는다. Callback은 짧게 끝내고 실제 작업은 Main Loop가 수행한다.</p>
       <h2 id="result">검증 상태</h2>
       <table><thead><tr><th>항목</th><th>상태</th></tr></thead><tbody><tr><td>TIM2 Interrupt 기반 Sampling</td><td>구현·Debug 빌드 완료</td></tr><tr><td>NUCLEO-F401RE Flash·Verify</td><td>완료</td></tr><tr><td>UART 약 500ms 출력·LED 동작</td><td>보드 검증 완료</td></tr></tbody></table>
       <p class="summary"><strong>TIM2가 500ms마다 측정 요청 Flag를 세우고, Main Loop가 ADC 측정·LED 표시·UART 출력을 처리한다.</strong></p>

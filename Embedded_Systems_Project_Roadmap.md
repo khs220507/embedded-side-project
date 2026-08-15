@@ -4,6 +4,27 @@
 > **Board:** STM32 NUCLEO-F401RE\
 > **Direction:** WPF upper-level control + STM32 lower-level control
 
+## 이 로드맵에서 배울 수 있는 기술 스택
+
+| 분야 | 기술 스택 | 학습 내용 |
+|---|---|---|
+| Firmware | Embedded C / C++ | MCU 프로그램 구조, 상태 관리, 센서·모터 제어 로직 |
+| STM32 | STM32CubeIDE, STM32CubeMX, STM32 HAL | Clock·Pin·Peripheral 설정과 HAL 기반 Firmware 구현 |
+| MCU Peripheral | GPIO, ADC, UART, I2C, Timer, PWM, DMA, Interrupt | LED·버튼·센서 입력·주기 작업·비동기 통신 제어 |
+| Sensor / Actuator | CdS, DHT11, MPU6050, HC-SR04, IR Sensor, Servo, DC Motor, Stepper Motor | 실제 환경 데이터 측정과 모터 구동 |
+| RTOS | FreeRTOS | Task, Queue, Semaphore 기반 동시 작업 처리 |
+| PC Application | C#, .NET, WPF | STM32 Serial 통신, 모니터링 화면, 제어 UI 구성 |
+| System Design | Serial Protocol, State Machine, Sensor-Actuator Integration | 상위 WPF와 하위 MCU를 연결한 제어 시스템 설계 |
+| Development Tools | Git, GitHub, CMake, VS Code | 소스 관리, 프로젝트 빌드, 학습 기록 관리 |
+
+**최종적으로는 WPF가 상태를 표시·명령하고, STM32가 센서와 모터를 실시간으로 제어하는 임베디드 제어 시스템을 구현한다.**
+
+### 핵심 학습 기술 키워드
+
+`GPIO` · `EXTI` · `ADC` · `UART / USART` · `I2C` · `Timer` · `PWM` · `DMA` · `Interrupt / NVIC` · `FreeRTOS` · `Sensor Interface` · `Motor Control` · `Serial Protocol` · `C# / WPF`
+
+현재처럼 한 챕터씩 실제 구현하면서 각 기술의 초기화, 데이터 흐름, IRQ·Callback 연결, 보드 검증까지 익힌다.
+
 ------------------------------------------------------------------------
 
 ## 0. Development Environment
