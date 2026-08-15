@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>STM32 HAL: GPIO, UART, DMA와 ADC 제어</title>
+  <title>STM32 HAL: GPIO, UART, DMA, ADC와 Timer 제어</title>
   <style>
     :root{--text:#222;--muted:#666;--line:#e5e5e5;--primary:#2563eb;--soft:#f6f8fa}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--text);background:#fff;font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;word-break:keep-all}.hero{padding:56px 24px 36px;border-bottom:1px solid var(--line)}.hero-inner,main{width:min(820px,calc(100% - 40px));margin:0 auto}.eyebrow{margin:0 0 6px;color:var(--primary);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}h1{margin:0;font-size:clamp(34px,6vw,46px);line-height:1.2;letter-spacing:-.035em}.hero-description{max-width:650px;margin:12px 0 0;color:var(--muted)}main{padding:32px 0 72px}.toc{display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:44px;padding-bottom:24px;border-bottom:1px solid var(--line)}.toc a{color:var(--muted);font-size:14px;text-decoration:none}.toc a:hover{color:var(--primary)}h2,h3{scroll-margin-top:24px;line-height:1.35;letter-spacing:-.025em}h2{margin:0 0 18px;font-size:28px}h2:not(:first-child){margin-top:64px;padding-top:48px;border-top:1px solid var(--line)}h3{margin:38px 0 12px;font-size:20px}p{margin:12px 0}code{padding:2px 5px;border-radius:4px;color:#1d4ed8;background:#eef3ff;font-family:Consolas,"Courier New",monospace;font-size:.92em}pre{overflow-x:auto;margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:6px;color:#24292f;background:var(--soft);line-height:1.6}pre code{padding:0;color:inherit;background:transparent;font-size:14px}.flow-steps{display:flex;align-items:stretch;margin:20px 0;overflow-x:auto}.flow-step{display:flex;min-width:145px;flex:1;align-items:center;justify-content:center;padding:12px;border:1px solid var(--line);background:#fff;font-size:14px;font-weight:650;text-align:center}.flow-step+.flow-step{border-left:0}.flow-step:first-child{border-radius:6px 0 0 6px}.flow-step:last-child{border-radius:0 6px 6px 0}table{width:100%;margin:16px 0;border:1px solid var(--line);border-collapse:collapse;table-layout:fixed}th,td{padding:10px 14px;border:1px solid var(--line);text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:var(--soft);font-size:14px}ul{padding-left:24px}.summary{margin-top:24px;padding:14px 16px;border-left:3px solid var(--primary);background:var(--soft)}@media(max-width:700px){.hero{padding:40px 20px 28px}.hero-inner,main{width:min(100% - 28px,820px)}main{padding-top:24px}.toc{gap:7px 14px;margin-bottom:36px}h2{font-size:25px}h3{font-size:19px}table{font-size:14px}th,td{padding:8px 10px}}
   </style>
@@ -199,6 +199,24 @@ HAL_ADC_Stop(&amp;hadc1);</code></pre>
       <ul><li>HAL은 STM32 주변장치를 함수와 구조체로 제어하게 해주는 하드웨어 추상화 계층이다.</li><li>HAL 함수 내부에서도 최종적으로 MCU 레지스터를 읽거나 쓴다.</li><li>주변장치 설정과 상태는 <code>Handle</code> 구조체에 저장한다.</li><li>주변장치를 초기화한 다음 HAL 동작 함수를 호출해야 한다.</li><li>여러 HAL 함수는 정해진 상태값으로 결과를 반환한다.</li><li><code>__HAL_LINKDMA()</code>는 UART Handle과 DMA Handle을 양방향으로 연결한다.</li><li>UART DMA 함수는 전송을 시작한 뒤 IRQ와 Callback으로 완료를 알린다.</li><li>ADC Polling 변환은 시작, 완료 대기, 결과 읽기, 정지 순서로 수행한다.</li></ul>
       <h3>한 줄 정리</h3>
       <p class="summary"><strong>STM32 HAL은 레지스터 제어를 함수, Macro와 Handle 구조체로 감싸 GPIO, UART, DMA와 ADC를 일관된 방식으로 사용할 수 있게 해주는 드라이버 계층이다.</strong></p>
+      <h2 id="timer">Timer에서 사용하는 HAL</h2>
+      <p><code>05_Timer_Sampling</code>은 <code>TIM_HandleTypeDef htim2</code>에 TIM2의 설정과 상태를 저장한다. Prescaler <code>8399</code>, Period <code>4999</code>로 500ms마다 Update Event를 만든다.</p>
+      <pre><code>HAL_TIM_Base_Init(&amp;htim2);
+HAL_TIM_Base_Start_IT(&amp;htim2);
+
+void TIM2_IRQHandler(void)
+{
+    HAL_TIM_IRQHandler(&amp;htim2);
+}</code></pre>
+      <p><code>HAL_TIM_Base_Init()</code>은 Counter 설정을 적용하고 <code>HAL_TIM_Base_MspInit()</code>을 호출한다. 현재 MSP Init은 <code>__HAL_RCC_TIM2_CLK_ENABLE()</code>로 Clock을 켜고 NVIC에서 <code>TIM2_IRQn</code>을 활성화한다. <code>HAL_TIM_Base_Start_IT()</code>은 Counter와 Update Interrupt를 시작한다.</p>
+      <pre><code>void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim-&gt;Instance == TIM2)
+    {
+        timerSampleRequested = 1U;
+    }
+}</code></pre>
+      <p><code>HAL_TIM_IRQHandler()</code>가 Update Flag를 처리하면 HAL이 Callback을 호출한다. Callback은 Flag만 설정하고 ADC Polling·LED·UART 출력은 Main Loop에서 처리한다.</p>
     </article>
   </main>
 </body>

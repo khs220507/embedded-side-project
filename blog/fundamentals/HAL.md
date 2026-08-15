@@ -1,4 +1,4 @@
-# STM32 HAL: GPIO, UART, DMA와 ADC 제어
+# STM32 HAL: GPIO, UART, DMA, ADC와 Timer 제어
 
 ## HAL이란?
 
@@ -35,6 +35,11 @@ HAL은 `Hardware Abstraction Layer`의 약자로, **하드웨어 추상화 계�
 | `HAL_ADC_GetValue()` | 완료된 ADC 변환값 읽기 |
 | `HAL_ADC_Stop()` | ADC 변환 정지 |
 | `__HAL_RCC_ADC1_CLK_ENABLE()` | ADC1 Peripheral Clock 활성화 |
+| `HAL_TIM_Base_Init()` | Timer Base 설정을 TIM2에 적용 |
+| `HAL_TIM_Base_Start_IT()` | Timer Counter와 Update Interrupt 시작 |
+| `HAL_TIM_IRQHandler()` | TIM2 IRQ 원인을 HAL Timer 처리로 전달 |
+| `HAL_TIM_PeriodElapsedCallback()` | Update Event 처리 뒤 호출되는 사용자 Callback |
+| `__HAL_RCC_TIM2_CLK_ENABLE()` | TIM2 Peripheral Clock 활성화 |
 
 ## HAL을 사용하는 이유
 
@@ -422,7 +427,41 @@ HAL_ADC_Stop(&hadc1);
 | `HAL_ADC_GetValue()` | `&hadc1`, `uint32_t` 변환값 | 12-bit 결과인 0~4095 읽기 |
 | `HAL_ADC_Stop()` | `&hadc1`, `HAL_StatusTypeDef` | 이번 단일 변환 종료 |
 
-현재 ADC 경로는 Interrupt나 Callback을 사용하지 않는다. CPU가 최대 10ms 동안 완료를 확인하는 Polling 방식이며, 실제 변환은 보통 Timeout보다 훨씬 빨리 끝난다. 구현과 Debug 빌드는 완료했지만 CdS 모듈을 연결한 실제 보드 값은 아직 확인하지 않았다.
+현재 ADC 경로는 Interrupt나 Callback을 사용하지 않는다. CPU가 최대 10ms 동안 완료를 확인하는 Polling 방식이며, 실제 변환은 보통 Timeout보다 훨씬 빨리 끝난다.
+
+## Timer에서 사용하는 HAL
+
+`05_Timer_Sampling`에서는 `TIM_HandleTypeDef htim2`가 TIM2의 설정과 상태를 저장한다. TIM2는 84MHz APB1 Timer Clock을 Prescaler `8399`, Period `4999`로 나누어 500ms마다 Update Event를 만든다.
+
+### `HAL_TIM_Base_Init()`과 `HAL_TIM_Base_Start_IT()`
+
+```c
+HAL_TIM_Base_Init(&htim2);
+HAL_TIM_Base_Start_IT(&htim2);
+```
+
+`HAL_TIM_Base_Init()`은 Counter Mode, Prescaler, Period 설정을 적용하고 내부에서 `HAL_TIM_Base_MspInit()`을 호출한다. 현재 MSP Init은 `__HAL_RCC_TIM2_CLK_ENABLE()`로 TIM2 Clock을 공급하고 `HAL_NVIC_SetPriority()`·`HAL_NVIC_EnableIRQ()`로 `TIM2_IRQn`을 활성화한다.
+
+`HAL_TIM_Base_Start_IT()`은 TIM2 Counter를 시작하고 Update Interrupt를 허용한다. 인자는 모두 `&htim2`이며, 두 함수 모두 성공 시 `HAL_OK`를 반환한다.
+
+### `HAL_TIM_IRQHandler()`와 `HAL_TIM_PeriodElapsedCallback()`
+
+```c
+void TIM2_IRQHandler(void)
+{
+    HAL_TIM_IRQHandler(&htim2);
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM2)
+    {
+        timerSampleRequested = 1U;
+    }
+}
+```
+
+`TIM2_IRQHandler()`에서 `HAL_TIM_IRQHandler()`가 Update Flag를 처리하면 HAL이 `HAL_TIM_PeriodElapsedCallback()`을 호출한다. Callback은 HAL이 제공하는 약한(weak) 함수이므로 사용자 코드에서 같은 이름으로 구현해 동작을 연결한다. 이 프로젝트는 Interrupt에서 Flag만 설정하고 ADC Polling·LED·UART 출력은 Main Loop가 수행한다.
 
 ## HAL과 직접 레지스터 제어의 관계
 
@@ -445,7 +484,8 @@ HAL 사용      : 함수 호출 → HAL 내부 코드 → 레지스터
 - `__HAL_LINKDMA()`는 UART Handle과 DMA Handle을 양방향으로 연결한다.
 - UART DMA 함수는 전송을 시작한 뒤 IRQ와 Callback으로 완료를 알린다.
 - ADC Polling 변환은 시작, 완료 대기, 결과 읽기, 정지 순서로 수행한다.
+- Timer Update Interrupt는 IRQ Handler → HAL IRQ Handler → Callback 순서로 전달된다.
 
 ## 한 줄 정리
 
-STM32 HAL은 레지스터 제어를 함수, Macro와 Handle 구조체로 감싸 GPIO, UART, DMA와 ADC를 일관된 방식으로 사용할 수 있게 해주는 드라이버 계층이다.
+STM32 HAL은 레지스터 제어를 함수, Macro와 Handle 구조체로 감싸 GPIO, UART, DMA, ADC와 Timer를 일관된 방식으로 사용할 수 있게 해주는 드라이버 계층이다.

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 Timer: TIM2 Interrupt 기반 ADC Sampling</title>
+  <style>
+    :root{--text:#222;--muted:#666;--line:#e5e5e5;--primary:#2563eb;--soft:#f6f8fa}*{box-sizing:border-box}body{margin:0;color:var(--text);font:16px/1.7 system-ui,sans-serif;word-break:keep-all}.hero{padding:56px 24px 36px;border-bottom:1px solid var(--line)}.hero-inner,main{width:min(820px,calc(100% - 40px));margin:auto}.eyebrow{margin:0;color:var(--primary);font-size:13px;font-weight:700}h1{margin:6px 0;font-size:clamp(34px,6vw,46px);line-height:1.2}main{padding:32px 0 72px}.toc{display:flex;gap:8px 16px;flex-wrap:wrap;padding-bottom:24px;border-bottom:1px solid var(--line)}.toc a{color:var(--muted);text-decoration:none}h2{margin-top:58px;padding-top:38px;border-top:1px solid var(--line)}h3{margin-top:34px}code{padding:2px 5px;color:#1d4ed8;background:#eef3ff;font-family:Consolas,monospace}pre{overflow:auto;padding:16px;background:var(--soft);border:1px solid var(--line)}pre code{padding:0;color:inherit;background:none}.flow{display:flex;overflow:auto;margin:18px 0}.step{min-width:130px;flex:1;padding:12px;border:1px solid var(--line);text-align:center;font-weight:650}.step+.step{border-left:0}table{width:100%;border-collapse:collapse;table-layout:fixed;margin:16px 0}th,td{padding:10px;border:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}th{background:var(--soft)}.summary{padding:14px;border-left:3px solid var(--primary);background:var(--soft)}@media(max-width:700px){.hero{padding:40px 20px 28px}.hero-inner,main{width:calc(100% - 28px)}}
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 Timer: TIM2 Interrupt 기반 ADC Sampling</h1><p>TIM2 Update Interrupt로 CdS 센서의 500ms 측정 시점을 만드는 범위를 정리한다.</p></div></header>
+  <main>
+    <nav class="toc"><a href="#concept">기본 개념</a><a href="#code">핵심 코드</a><a href="#flow">실행 흐름</a><a href="#result">검증 상태</a></nav>
+    <article>
+      <h2 id="concept">기본 개념</h2>
+      <p>TIM2는 MCU 내부 Clock을 센다. APB1 Timer Clock 84MHz를 Prescaler <code>8399</code>로 나누면 10kHz가 되고, Period <code>4999</code>까지 5,000번 세면 500ms가 된다. 레지스터 값은 실제 계산에서 각각 <code>+1</code>을 적용한다.</p>
+      <h2 id="code">핵심 코드</h2>
+      <pre><code>HAL_TIM_Base_Start_IT(&amp;htim2);</code></pre>
+      <p>초기화가 끝난 TIM2 Counter와 Update Interrupt를 실제로 시작한다.</p>
+      <pre><code>void TIM2_IRQHandler(void)
+{
+    HAL_TIM_IRQHandler(&amp;htim2);
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim-&gt;Instance == TIM2)
+    {
+        timerSampleRequested = 1U;
+    }
+}</code></pre>
+      <pre><code>if (timerSampleRequested != 0U)
+{
+    timerSampleRequested = 0U;
+    CdS_ProcessSample();
+}</code></pre>
+      <h2 id="flow">실행 주체별 흐름</h2>
+      <div class="flow"><div class="step">main()<br>Timer 시작</div><div class="step">TIM2<br>500ms 계수</div><div class="step">MCU 자동 호출<br>IRQ Handler</div><div class="step">HAL Callback<br>Flag = 1</div><div class="step">Main Loop 복귀<br>ADC·LED·UART</div></div>
+      <table><thead><tr><th>단계</th><th>실행 주체</th><th>하는 일</th></tr></thead><tbody>
+        <tr><td>1</td><td><code>main()</code></td><td><code>HAL_TIM_Base_Start_IT()</code>로 Counter를 시작한다.</td></tr>
+        <tr><td>2</td><td>TIM2 하드웨어</td><td>Main Loop와 별개로 500ms를 센다.</td></tr>
+        <tr><td>3</td><td>MCU</td><td>시간이 끝나면 Main Loop를 잠깐 멈추고 <code>TIM2_IRQHandler()</code>를 자동 실행한다.</td></tr>
+        <tr><td>4</td><td>HAL Callback</td><td><code>timerSampleRequested = 1U</code>만 설정한다.</td></tr>
+        <tr><td>5</td><td><code>main()</code></td><td>Interrupt가 끝난 뒤 멈췄던 <code>while (1)</code> 자리로 돌아와 ADC·LED·UART를 처리한다.</td></tr>
+      </tbody></table>
+      <p>Interrupt 안에서는 시간이 걸릴 수 있는 ADC Polling과 <code>printf()</code>를 실행하지 않는다. Callback은 짧게 끝내고 실제 작업은 Main Loop에 맡긴다.</p>
+      <h2 id="result">검증 상태</h2>
+      <table><thead><tr><th>항목</th><th>상태</th></tr></thead><tbody><tr><td>TIM2 Interrupt 기반 Sampling</td><td>구현·Debug 빌드 완료</td></tr><tr><td>NUCLEO-F401RE Flash·Verify</td><td>완료</td></tr><tr><td>UART 약 500ms 출력·LED 동작</td><td>보드 검증 완료</td></tr></tbody></table>
+      <p class="summary"><strong>TIM2가 500ms마다 측정 요청 Flag를 세우고, Main Loop가 ADC 측정·LED 표시·UART 출력을 처리한다.</strong></p>
+    </article>
+  </main>
+</body>
+</html>
