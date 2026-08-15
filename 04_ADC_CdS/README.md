@@ -42,4 +42,4 @@ cmake --preset Debug
 cmake --build --preset Debug -j
 ```
 
-Debug 빌드에서 `build/Debug/04_ADC_CdS.elf` 생성을 확인했다. 이전 ADC 값 출력 버전은 NUCLEO-F401RE에 Flash·Verify까지 완료했고, 이번 LED 단계 표시 버전은 빌드 완료 후 Flash와 보드 검증이 남아 있다.
+Debug 빌드에서 `build/Debug/04_ADC_CdS.elf` 생성을 확인했고, LED 단계 표시 버전도 NUCLEO-F401RE에 Flash·Verify했다. 밝기별 LED 색과 UART `brightness` 출력이 일치하는 것도 실제 보드에서 확인했다.

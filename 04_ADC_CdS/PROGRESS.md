@@ -14,7 +14,8 @@
 | 8 | 어두울 때 측정 범위 확인 | 보드 검증 완료 (`raw=3657~3881`, `2.947~3.127V`) |
 | 9 | 밝을 때 측정 범위 확인 | 보드 검증 완료 (`raw=252~308`, `203~248mV`) |
 | 10 | 측정 범위 기반 LED 임계값 결정과 구현 | 구현·빌드 완료 |
-| 11 | LED 단계 표시 Firmware Flash와 보드 검증 | 다음 단계 |
+| 11 | LED 단계 표시 Firmware Flash와 Verify | 완료 |
+| 12 | 밝기별 LED와 UART `brightness` 출력 확인 | 보드 검증 완료 |
 
 ## 빌드 결과
 
@@ -22,6 +23,7 @@
 - `04_ADC_CdS` Debug 빌드: 완료
 - `04_ADC_CdS.elf`: LED 단계 표시 버전 생성 완료
 - NUCLEO-F401RE Flash 및 Verify: 완료
+- LED 단계 표시 버전 Flash 및 Verify: 완료
 - FLASH: 22,776 B / 512 KB
 - RAM: 2,544 B / 96 KB
 
@@ -32,4 +34,11 @@
 3. 센서를 가렸을 때 `raw=3657~3881`, `2.947~3.127V` 확인 완료
 4. 빛을 비췄을 때 `raw=252~308`, `203~248mV` 확인 완료
 5. `1200 / 2100 / 3000` 임계값 LED 단계 표시 구현·빌드 완료
-6. 새 Firmware Flash 후 밝기별 LED와 UART `brightness` 출력 확인
+6. 밝기별 LED와 UART `brightness` 출력 확인
+
+## 최종 검증
+
+- 휴대폰 플래시를 비춘 밝은 상태에서 `brightness=BRIGHT`와 초록 LED 확인
+- 센서를 가린 어두운 상태에서 `brightness=DARK`와 빨강 LED 확인
+- ADC 값, UART 출력, LED 단계 표시가 일치함을 실제 NUCLEO-F401RE에서 확인
+- 다음 학습: 새 `05_Timer_Sampling` 프로젝트에서 Hardware Timer 기반 주기 Sampling

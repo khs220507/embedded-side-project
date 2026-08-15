@@ -79,8 +79,8 @@ LED_ShowState(currentState);</code></pre>
       <p>500ms마다 새 ADC 값으로 LED 상태를 갱신하므로, 이전 UART LED 명령이나 버튼으로 바꾼 LED는 다음 센서 측정 때 조도 상태로 다시 바뀐다.</p>
 
       <h2 id="result">현재 검증 상태</h2>
-      <table><thead><tr><th>항목</th><th>상태</th></tr></thead><tbody><tr><td>ADC1 Channel 0, 500ms 측정, UART 출력</td><td>구현 완료</td></tr><tr><td><code>04_ADC_CdS.elf</code></td><td>LED 단계 표시 버전 Debug 빌드 완료</td></tr><tr><td>NUCLEO-F401RE Flash·Verify</td><td>ADC 출력 버전 완료</td></tr><tr><td>기본 UART 측정</td><td><code>raw=587~588</code>, <code>473mV</code> 확인</td></tr><tr><td>어두운 상태</td><td><code>raw=3657~3881</code>, <code>2.947~3.127V</code> 확인</td></tr><tr><td>밝은 상태</td><td><code>raw=252~308</code>, <code>203~248mV</code> 확인</td></tr><tr><td>조도 단계 LED 표시</td><td>Flash·보드 검증 필요</td></tr></tbody></table>
-      <p>밝은 상태에서 ADC 값이 낮고, 어두운 상태에서 높아지는 것을 확인했다. 새 Firmware를 Flash한 뒤 각 조도 구간에서 LED와 <code>brightness</code> 출력이 일치하는지 확인한다.</p>
+      <table><thead><tr><th>항목</th><th>상태</th></tr></thead><tbody><tr><td>ADC1 Channel 0, 500ms 측정, UART 출력</td><td>구현 완료</td></tr><tr><td><code>04_ADC_CdS.elf</code></td><td>LED 단계 표시 버전 Debug 빌드 완료</td></tr><tr><td>NUCLEO-F401RE Flash·Verify</td><td>LED 단계 표시 버전 완료</td></tr><tr><td>기본 UART 측정</td><td><code>raw=587~588</code>, <code>473mV</code> 확인</td></tr><tr><td>어두운 상태</td><td><code>raw=3657~3881</code>, <code>2.947~3.127V</code> 확인</td></tr><tr><td>밝은 상태</td><td><code>raw=252~308</code>, <code>203~248mV</code> 확인</td></tr><tr><td>조도 단계 LED 표시</td><td>실제 LED·UART 출력 검증 완료</td></tr></tbody></table>
+      <p>밝은 상태에서 ADC 값이 낮고, 어두운 상태에서 높아지는 것을 확인했다. 실제 보드에서 밝은 상태의 <code>brightness=BRIGHT</code>·초록 LED와 어두운 상태의 <code>brightness=DARK</code>·빨강 LED가 일치했다.</p>
 
       <h2 id="summary">배운 점</h2>
       <ul><li>Analog Input은 HIGH/LOW가 아니라 전압 범위를 수치로 표현한다.</li><li>12-bit ADC는 입력 범위를 4096단계로 나눈다.</li><li>Channel은 물리 입력 경로이고 Rank는 변환 순서다.</li><li>Polling 방식은 단순하지만 완료될 때까지 CPU가 기다린다.</li><li>센서 임계값은 실제 측정 범위를 확인한 후 정해야 한다.</li></ul>

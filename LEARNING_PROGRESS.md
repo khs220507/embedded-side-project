@@ -13,7 +13,7 @@
 | `01_GPIO_LED` | GPIO Input/Output, 4색 LED 상태, 50ms Button Debouncing | 완료 | 완료 | 초기 B1·LD2·PB5 확인, 현재 4상태 전체 확인 기록 없음 | `blog/technologies/GPIO.*` |
 | `02_UART` | USART2, Polling/Interrupt, Callback, 문자열 Buffer, LED 명령, `_write()` | 완료 | 완료 | 터미널 송수신과 `led red` 기록 있음, 현재 Blocking `printf()` 재확인 필요 | `blog/technologies/UART.*` |
 | `03_UART_DMA` | RX/TX DMA, Stream/Channel, `ReceiveToIdle`, DMA IRQ/Callback, `__WFI()` | 완료 | 완료 | Flash·Verify·DMA 송수신·LED 명령 확인 완료 | `blog/technologies/DMA.*`, `blog/fundamentals/HAL.*`, `blog/fundamentals/CMSIS.*` |
-| `04_ADC_CdS` | PA0/ADC1_IN0, 12-bit 단일 변환, 500ms Polling Sampling, UART 출력, 조도 LED 단계 | 완료 | 완료 | ADC 출력 버전 Flash·Verify 완료, LED 단계 보드 검증 필요 | `blog/technologies/ADC.*`, `blog/fundamentals/HAL.*` |
+| `04_ADC_CdS` | PA0/ADC1_IN0, 12-bit 단일 변환, 500ms Polling Sampling, UART 출력, 조도 LED 단계 | 완료 | 완료 | Flash·Verify·밝기별 LED·UART 출력 확인 완료 | `blog/technologies/ADC.*`, `blog/fundamentals/HAL.*` |
 
 ## 완료한 핵심 학습
 
@@ -73,7 +73,8 @@
 | CdS 어두운 상태 측정값 (`raw=3657~3881`, `2.947~3.127V`) | 완료 |
 | CdS 밝은 상태 측정값 (`raw=252~308`, `203~248mV`) | 완료 |
 | 실측 범위 기반 LED 단계 표시 코드와 Debug 빌드 | 완료 |
-| LED 단계 표시 Flash 및 실제 LED 동작 | 추가 확인 필요 |
+| LED 단계 표시 Flash 및 Verify | 완료 |
+| 밝기별 LED와 UART `brightness` 출력 | 완료 |
 | `01_GPIO_LED` 현재 4상태 전체 보드 동작 | 추가 확인 필요 |
 | `02_UART` 현재 Blocking `_write()`의 터미널 출력 | 추가 확인 필요 |
 
@@ -92,7 +93,7 @@
 
 ## 다음 학습 시작점
 
-현재 `04_ADC_CdS`의 ADC 값 출력은 Flash·Verify까지, 실측 범위 기반 LED 단계 표시는 구현·빌드까지 완료했다. 다음 시작점은 새 Firmware를 Flash하고 밝기별 LED와 UART `brightness` 출력을 확인하는 것이다. 검증 후 다음 확장으로 Timer 기반 주기 Sampling을 진행한다.
+현재 `04_ADC_CdS` 챕터는 구현·빌드·Flash·Verify·실제 보드 검증까지 완료했다. 다음 학습은 새 `05_Timer_Sampling` 프로젝트에서 Hardware Timer로 ADC Sampling 주기를 만드는 것이다. 현재 `HAL_GetTick()` 500ms 방식과 Timer Interrupt 방식의 차이를 확인한다.
 
 ## 상태 기준
 
