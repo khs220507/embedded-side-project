@@ -43,14 +43,14 @@
 | 04 | `04_ADC_CdS` | ADC1, CdS 조도 측정, LED 표시 | 완료 |
 | 05 | `05_Timer_Sampling` | TIM2 Update Interrupt, 주기 Sampling | 완료 |
 | 06 | `06_PWM_LED` | Timer PWM으로 LED 밝기 제어 | 구현·빌드 완료 · 보드 검증 완료 |
-| 07 | I2C | I2C Peripheral 또는 Sensor 통신 | 예정 |
+| 07 | `07_I2C` | I2C1 주소 스캔, MPU6050 통신 준비 | 구현·Debug 빌드·Flash/Verify 완료 · 주소 응답 추가 확인 필요 |
 | 08 | SPI | SPI Peripheral 통신 | 예정 |
 
 `Interrupt`는 별도 프로젝트로 분리하지 않는다. `02_UART`의 UART 수신 Interrupt와 `05_Timer_Sampling`의 TIM2 Update Interrupt에서 IRQ Handler, HAL Callback, Main Loop의 역할 분리를 학습했다.
 
 ## 다음 학습 시작점
 
-`06_PWM_LED`은 구현·Debug 빌드·NUCLEO-F401RE Flash·Verify와 LED 밝기 변화·UART 출력을 모두 확인했다. 다음 시작점은 `07_I2C`에서 I2C Peripheral 또는 Sensor 통신을 구현하는 것이다.
+`06_PWM_LED`은 구현·Debug 빌드·NUCLEO-F401RE Flash·Verify와 LED 밝기 변화·UART 출력을 모두 확인했다. `07_I2C`은 I2C1 주소 스캔 구현·Debug 빌드·Flash/Verify를 완료했으며, 다음 시작점은 I2C 장치 주소 응답 확인이다.
 
 ## 상태 기준
 
