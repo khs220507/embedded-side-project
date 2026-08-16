@@ -489,3 +489,13 @@ HAL 사용      : 함수 호출 → HAL 내부 코드 → 레지스터
 ## 한 줄 정리
 
 STM32 HAL은 레지스터 제어를 함수, Macro와 Handle 구조체로 감싸 GPIO, UART, DMA, ADC와 Timer를 일관된 방식으로 사용할 수 있게 해주는 드라이버 계층이다.
+
+## PWM에서 사용하는 HAL
+
+`06_PWM_LED`에서는 `TIM_HandleTypeDef htim1`이 TIM1 PWM의 설정과 상태를 저장한다. `HAL_TIM_PWM_Init()`은 TIM1의 PWM 동작을 초기화하고 `HAL_TIM_PWM_MspInit()`을 통해 TIM1 Clock을 활성화한다. 성공하면 `HAL_OK`를 반환한다.
+
+`HAL_TIM_PWM_ConfigChannel(&htim1, &channelConfig, TIM_CHANNEL_1)`은 Channel 1의 PWM Mode, Polarity, 초기 Compare 값을 설정한다. 이 프로젝트는 `TIM_OCMODE_PWM1`, Pulse `0`을 사용한다.
+
+`HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1)`은 설정된 PWM 출력을 시작한다. PA8은 `HAL_TIM_MspPostInit()`에서 `GPIO_AF1_TIM1` Alternate Function으로 설정되어 `TIM1_CH1` 신호를 출력한다.
+
+`__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pulse)`는 HAL Macro다. TIM1을 멈추지 않고 Channel 1의 Compare Register를 `pulse` 값으로 갱신한다. 현재 코드는 CdS ADC 원시값 `0~4095`를 `0~1000` 범위로 변환해 이 Macro에 전달한다. PWM 자체는 Interrupt나 Callback을 사용하지 않으며, TIM2 Update Interrupt 뒤 Main Loop에서 Compare 값을 바꾼다.

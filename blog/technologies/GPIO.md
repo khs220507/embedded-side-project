@@ -177,11 +177,13 @@ GPIO는 MCU와 외부 장치를 연결하는 가장 기본적인 디지털 입�
 
 네 LED의 캐소드는 브레드보드의 공통 GND 레일에 연결하고, NUCLEO의 GND도 같은 레일에 연결한다. USER 버튼 B1(PC13)은 보드에 내장되어 있으므로 추가 배선하지 않는다.
 
-### 이후 학습 순서
+### 현재 학습 로드맵
 
 ```text
-GPIO → Interrupt → PWM → ADC → UART → I2C → SPI
+GPIO → UART/Interrupt → UART DMA → ADC(CdS) → Timer Sampling → PWM → I2C → SPI
 ```
+
+GPIO부터 Timer Sampling까지 완료했다. `Interrupt`는 독립 프로젝트가 아니라 UART 수신과 TIM2 Update Event를 구현하면서 함께 학습했다. 다음 주제는 Timer PWM으로 LED 밝기를 제어하는 PWM이다.
 
 ---
 

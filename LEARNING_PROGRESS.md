@@ -15,6 +15,7 @@
 | `03_UART_DMA` | RX/TX DMA, ReceiveToIdle, DMA IRQ/Callback, `__WFI()` | 완료 | 완료 | Flash·Verify·DMA 송수신·LED 명령 완료 | `blog/technologies/DMA.*` |
 | `04_ADC_CdS` | PA0/ADC1_IN0, 12-bit ADC, CdS, 조도 LED | 완료 | 완료 | Flash·Verify·밝음/어두움 LED·UART 출력 완료 | `blog/technologies/ADC.*` |
 | `05_Timer_Sampling` | TIM2 Update Interrupt, Callback Flag, 주기 Sampling | 완료 | 완료 | Flash·Verify·UART 약 500ms 출력·LED 동작 완료 | `blog/technologies/Timer.*` |
+| `06_PWM_LED` | TIM1_CH1 PWM, CdS 값 기반 Duty Cycle | 완료 | 완료 | Flash·Verify·밝기 변화·UART 출력 확인 완료 | `blog/technologies/PWM.*` |
 
 ## 04 ADC CdS 검증 기록
 
@@ -32,9 +33,24 @@
 - Main Loop가 ADC Polling·LED 표시·UART 출력을 실행
 - Debug 빌드: FLASH 24,484 B / 512 KB, RAM 2,624 B / 96 KB
 
+## 학습 로드맵
+
+| 순서 | 프로젝트 또는 주제 | 핵심 학습 내용 | 현재 상태 |
+|---|---|---|---|
+| 01 | `01_GPIO_LED` | GPIO 출력, Button Debouncing | 완료 |
+| 02 | `02_UART` | USART2 Polling/Interrupt, 문자열 명령 | 완료 |
+| 03 | `03_UART_DMA` | RX/TX DMA, ReceiveToIdle, Callback | 완료 |
+| 04 | `04_ADC_CdS` | ADC1, CdS 조도 측정, LED 표시 | 완료 |
+| 05 | `05_Timer_Sampling` | TIM2 Update Interrupt, 주기 Sampling | 완료 |
+| 06 | `06_PWM_LED` | Timer PWM으로 LED 밝기 제어 | 구현·빌드 완료 · 보드 검증 완료 |
+| 07 | I2C | I2C Peripheral 또는 Sensor 통신 | 예정 |
+| 08 | SPI | SPI Peripheral 통신 | 예정 |
+
+`Interrupt`는 별도 프로젝트로 분리하지 않는다. `02_UART`의 UART 수신 Interrupt와 `05_Timer_Sampling`의 TIM2 Update Interrupt에서 IRQ Handler, HAL Callback, Main Loop의 역할 분리를 학습했다.
+
 ## 다음 학습 시작점
 
-다음 챕터에서는 TIM2 주기 Event를 다른 동작에도 활용한다.
+`06_PWM_LED`은 구현·Debug 빌드·NUCLEO-F401RE Flash·Verify와 LED 밝기 변화·UART 출력을 모두 확인했다. 다음 시작점은 `07_I2C`에서 I2C Peripheral 또는 Sensor 통신을 구현하는 것이다.
 
 ## 상태 기준
 

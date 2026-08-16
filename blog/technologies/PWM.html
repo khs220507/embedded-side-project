@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 PWM: CdS 기반 LED 밝기 제어</title>
+  <style>
+    :root{--text:#222;--muted:#666;--line:#e5e5e5;--primary:#2563eb;--soft:#f6f8fa}*{box-sizing:border-box}body{margin:0;color:var(--text);font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;word-break:keep-all}.hero{padding:56px 24px 36px;border-bottom:1px solid var(--line)}.hero-inner,main{width:min(820px,calc(100% - 40px));margin:auto}.eyebrow{margin:0;color:var(--primary);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}h1{margin:6px 0;font-size:clamp(34px,6vw,46px);line-height:1.2}main{padding:32px 0 72px}.toc{display:flex;flex-wrap:wrap;gap:8px 16px;padding-bottom:24px;border-bottom:1px solid var(--line)}.toc a{color:var(--muted);text-decoration:none}h2{margin-top:58px;padding-top:38px;border-top:1px solid var(--line)}h3{margin-top:32px}code{padding:2px 5px;border-radius:4px;color:#1d4ed8;background:#eef3ff;font-family:Consolas,monospace}pre{overflow:auto;padding:16px;border:1px solid var(--line);border-radius:6px;background:var(--soft)}pre code{padding:0;color:inherit;background:none}table{width:100%;margin:16px 0;border-collapse:collapse;table-layout:fixed}th,td{padding:10px;border:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}th{background:var(--soft)}.flow{display:flex;flex-direction:column;gap:8px;margin:20px 0}.flow-step{padding:12px 14px;border:1px solid #bcd0f8;border-radius:8px;background:var(--soft);text-align:center;font-weight:700;overflow-wrap:anywhere}.flow-arrow{color:var(--primary);font-weight:700;text-align:center}.note{padding:14px;border-left:3px solid var(--primary);background:var(--soft)}@media(max-width:700px){.hero{padding:40px 20px 28px}.hero-inner,main{width:calc(100% - 28px)}table{font-size:14px}}
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 PWM: CdS 기반 LED 밝기 제어</h1><p>TIM1 Channel 1 PWM과 CdS ADC 값을 연결해 PA8 빨간 LED 밝기를 자동으로 제어한다.</p></div></header>
+  <main>
+    <nav class="toc"><a href="#concept">기본 개념</a><a href="#goal">구현 목표</a><a href="#wiring">배선</a><a href="#code">핵심 코드</a><a href="#flow">동작 흐름</a><a href="#result">실행 결과</a></nav>
+    <h2 id="concept">기본 개념</h2><p>PWM은 일정한 주기 안에서 HIGH 시간의 비율인 Duty Cycle을 바꿔 평균 출력량을 조절하는 방식이다. LED는 Duty Cycle이 높을수록 더 밝게 보인다.</p><p><code>06_PWM_LED</code>에서 TIM2는 500ms 측정 시점만 만들고, TIM1은 PA8에 1kHz PWM을 출력한다.</p>
+    <table><thead><tr><th>Timer</th><th>역할</th><th>실제 처리</th></tr></thead><tbody><tr><td>TIM2</td><td>측정 시점 생성</td><td>Update Interrupt에서 Flag 설정</td></tr><tr><td>TIM1</td><td>LED 밝기 생성</td><td>PA8(D7)에 PWM 출력</td></tr></tbody></table>
+    <h2 id="goal">구현 목표</h2><ul><li>PA8(D7)의 빨간 LED를 <code>TIM1_CH1</code> PWM으로 구동한다.</li><li>CdS ADC 값 <code>0~4095</code>를 PWM Compare 값 <code>0~1000</code>으로 변환한다.</li><li>밝을 때는 LED를 어둡게, 어두울 때는 밝게 만든다.</li></ul>
+    <h2 id="wiring">배선</h2><pre><code>NUCLEO D7 (PA8) → 220Ω 저항 → 빨간 LED Anode(긴 다리)
+빨간 LED Cathode(짧은 다리) → GND</code></pre><p>PA8은 일반 GPIO가 아니라 <code>TIM1_CH1</code> Alternate Function 출력으로 사용한다.</p>
+    <h2 id="code">핵심 코드</h2><h3>1. TIM1 PWM 설정</h3><pre><code>#define PWM_PERIOD 999U
+htim1.Init.Prescaler = 83;
+htim1.Init.Period = PWM_PERIOD;
+channelConfig.OCMode = TIM_OCMODE_PWM1;
+HAL_TIM_PWM_ConfigChannel(&amp;htim1, &amp;channelConfig, TIM_CHANNEL_1);
+HAL_TIM_PWM_Start(&amp;htim1, TIM_CHANNEL_1);</code></pre><p>84MHz ÷ (83 + 1) = 1MHz이고, 1MHz ÷ (999 + 1) = 1kHz PWM이다.</p>
+    <h3>2. PA8을 TIM1_CH1로 연결</h3><pre><code>GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+GPIO_InitStruct.Alternate = GPIO_AF1_TIM1;</code></pre><p>이 설정 뒤 PA8의 출력은 Timer가 제어한다.</p>
+    <h3>3. ADC 값을 Duty Cycle로 변환</h3><pre><code>pulse = (rawValue * (PWM_PERIOD + 1U)) / 4095U;
+__HAL_TIM_SET_COMPARE(&amp;htim1, TIM_CHANNEL_1, pulse);</code></pre><table><thead><tr><th>CdS ADC 값</th><th>Compare 값</th><th>LED 밝기</th></tr></thead><tbody><tr><td><code>0</code></td><td><code>0</code></td><td>0%, 꺼짐</td></tr><tr><td>약 <code>2048</code></td><td>약 <code>500</code></td><td>약 50%</td></tr><tr><td><code>4095</code></td><td><code>1000</code></td><td>100%, 최대 밝기</td></tr></tbody></table>
+    <h2 id="flow">전체 동작 흐름</h2><div class="flow"><div class="flow-step">TIM2 Update Interrupt 발생: 500ms</div><div class="flow-arrow">↓</div><div class="flow-step"><code>timerSampleRequested = 1</code></div><div class="flow-arrow">↓</div><div class="flow-step">Main Loop가 ADC1(CdS) 측정</div><div class="flow-arrow">↓</div><div class="flow-step">ADC raw 값을 PWM Compare 값으로 변환</div><div class="flow-arrow">↓</div><div class="flow-step"><code>__HAL_TIM_SET_COMPARE()</code>로 TIM1_CH1 갱신</div><div class="flow-arrow">↓</div><div class="flow-step">PA8 빨간 LED 밝기 변경 및 UART 출력</div></div><p>Interrupt Callback은 Flag만 설정한다. ADC Polling, PWM 계산, UART 출력은 Main Loop가 처리한다.</p>
+    <h2 id="result">실행 결과</h2><table><thead><tr><th>항목</th><th>상태</th></tr></thead><tbody><tr><td>구현</td><td>완료</td></tr><tr><td>Debug 빌드</td><td>완료 — FLASH 26,716 B / 512 KB, RAM 2,696 B / 96 KB</td></tr><tr><td>NUCLEO-F401RE Flash·Verify·Reset</td><td>완료</td></tr><tr><td>LED 밝기 변화·UART 출력 관찰</td><td>보드 검증 완료 — 밝음·어두움 조건에서 함께 변화 확인</td></tr></tbody></table>
+    <h2>주의 사항과 배운 점</h2><p class="note">PA8은 PWM 출력 전용 핀이다. 이전 GPIO 방식의 <code>LED_ShowState()</code> 또는 UART <code>led red</code> 명령은 빨간 LED PWM을 직접 바꾸지 못한다. 빨간 LED의 밝기는 <code>PWM_SetDutyFromCdS()</code>가 관리한다.</p><ul><li>PWM 밝기는 Counter Period와 Compare 값의 비율로 결정된다.</li><li>PWM 출력에는 Timer Alternate Function 핀 설정이 필요하다.</li><li>ADC와 PWM 범위가 다르면 값 변환이 필요하다.</li></ul>
+    <h2>한 줄 정리</h2><p class="note"><strong>TIM2가 500ms마다 CdS 측정을 요청하고, Main Loop가 ADC 값을 TIM1_CH1 Duty Cycle로 바꿔 PA8 빨간 LED 밝기를 자동 제어한다.</strong></p>
+  </main>
+</body>
+</html>

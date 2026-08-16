@@ -476,16 +476,18 @@ LED_ShowState(currentState);</code></pre>
   </table>
   <p class="summary"><strong>GPIO는 MCU와 외부 장치를 연결하는 가장 기본적인 디지털 입출력 인터페이스다.</strong></p>
 
-  <h3>이후 학습 순서</h3>
-  <div class="flow-steps" aria-label="이후 학습 순서">
+  <h3>현재 학습 로드맵</h3>
+  <div class="flow-steps" aria-label="현재 학습 로드맵">
     <div class="flow-step">GPIO</div>
-    <div class="flow-step">Interrupt</div>
+    <div class="flow-step">UART/Interrupt</div>
+    <div class="flow-step">UART DMA</div>
+    <div class="flow-step">ADC(CdS)</div>
+    <div class="flow-step">Timer Sampling</div>
     <div class="flow-step">PWM</div>
-    <div class="flow-step">ADC</div>
-    <div class="flow-step">UART</div>
     <div class="flow-step">I2C</div>
     <div class="flow-step">SPI</div>
   </div>
+  <p>GPIO부터 Timer Sampling까지 완료했다. <code>Interrupt</code>는 독립 프로젝트가 아니라 UART 수신과 TIM2 Update Event를 구현하면서 함께 학습했다. 다음 주제는 Timer PWM으로 LED 밝기를 제어하는 PWM이다.</p>
     </article>
   </main>
 </body>

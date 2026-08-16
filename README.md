@@ -4,7 +4,13 @@ NUCLEO-F401RE로 STM32 주변장치와 HAL 기반 동작을 단계별로 구현�
 
 ## 현재 진행 상태
 
-현재 `05_Timer_Sampling`까지 완료했습니다. TIM2 Update Interrupt가 500ms마다 측정 요청 Flag를 설정하고, Main Loop가 CdS ADC 측정·LED 표시·UART 출력을 처리합니다.
+현재 `06_PWM_LED`까지 구현·Debug 빌드·NUCLEO-F401RE 보드 검증을 완료했습니다. TIM1 Channel 1이 PA8(D7)의 빨간 LED를 PWM으로 구동하고, Main Loop가 CdS ADC 측정값으로 Duty Cycle을 갱신합니다.
+
+## 학습 로드맵
+
+`GPIO → UART/Interrupt → UART DMA → ADC(CdS) → Timer Sampling → PWM → I2C → SPI`
+
+`Interrupt`는 별도 프로젝트가 아니라 UART와 Timer 프로젝트에서 함께 학습했습니다. 다음 학습 챕터는 I2C입니다.
 
 | 프로젝트 | 주제 | 구현 | 빌드 | 보드 검증 |
 |---|---|---|---|---|
@@ -13,6 +19,7 @@ NUCLEO-F401RE로 STM32 주변장치와 HAL 기반 동작을 단계별로 구현�
 | [03_UART_DMA](03_UART_DMA/) | UART RX/TX DMA, ReceiveToIdle, Callback | 완료 | 완료 | 완료 |
 | [04_ADC_CdS](04_ADC_CdS/) | ADC1 PA0, CdS, 조도별 LED | 완료 | 완료 | 완료 |
 | [05_Timer_Sampling](05_Timer_Sampling/) | TIM2 Update Interrupt, 500ms Sampling | 완료 | 완료 | 완료 |
+| [06_PWM_LED](06_PWM_LED/) | TIM1_CH1 PWM, CdS 기반 LED 밝기 제어 | 완료 | 완료 | Flash·Verify·밝기 변화·UART 출력 확인 완료 |
 
 세부 상태와 다음 학습 시작점은 [LEARNING_PROGRESS.md](LEARNING_PROGRESS.md)에서 확인할 수 있습니다.
 

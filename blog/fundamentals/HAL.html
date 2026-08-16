@@ -217,6 +217,14 @@ void TIM2_IRQHandler(void)
     }
 }</code></pre>
       <p><code>HAL_TIM_IRQHandler()</code>가 Update Flag를 처리하면 HAL이 Callback을 호출한다. Callback은 Flag만 설정하고 ADC Polling·LED·UART 출력은 Main Loop에서 처리한다.</p>
+      <h2 id="pwm">PWM에서 사용하는 HAL</h2>
+      <p><code>06_PWM_LED</code>에서는 <code>TIM_HandleTypeDef htim1</code>이 TIM1 PWM 설정과 상태를 저장한다. <code>HAL_TIM_PWM_Init()</code>은 PWM 동작을 초기화하고 <code>HAL_TIM_PWM_MspInit()</code>을 통해 TIM1 Clock을 활성화한다.</p>
+      <pre><code>HAL_TIM_PWM_ConfigChannel(&amp;htim1, &amp;channelConfig, TIM_CHANNEL_1);
+HAL_TIM_PWM_Start(&amp;htim1, TIM_CHANNEL_1);
+
+__HAL_TIM_SET_COMPARE(&amp;htim1, TIM_CHANNEL_1, pulse);</code></pre>
+      <p><code>HAL_TIM_PWM_ConfigChannel()</code>은 Channel 1의 PWM Mode, Polarity, 초기 Compare 값을 설정하고, <code>HAL_TIM_PWM_Start()</code>는 출력을 시작한다. PA8은 <code>HAL_TIM_MspPostInit()</code>에서 <code>GPIO_AF1_TIM1</code> Alternate Function으로 설정되어 <code>TIM1_CH1</code> 신호를 출력한다.</p>
+      <p><code>__HAL_TIM_SET_COMPARE()</code>는 Timer를 멈추지 않고 Compare Register를 갱신하는 HAL Macro다. 현재 코드는 TIM2 Update Interrupt 뒤 Main Loop에서 CdS ADC 원시값 <code>0~4095</code>를 <code>0~1000</code>으로 변환해 전달한다. PWM 자체는 Interrupt나 Callback을 사용하지 않는다.</p>
     </article>
   </main>
 </body>
