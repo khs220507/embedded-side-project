@@ -582,3 +582,71 @@ static CommandBufferResult command_buffer_append(CommandBuffer *buffer, char cha
 ### 한 줄 정리
 
 `command_buffer_append()`는 문자 하나를 안전하게 저장하고 `IN_PROGRESS`, `COMPLETE`, `FULL` 상태로 입력 흐름을 알려 준다.
+
+---
+
+## 배열 기반 Stack: `push()`와 `pop()`
+
+### 구현 목표
+
+`09_DataStructures_Basic/src/main.c`에서 고정 크기 배열로 Stack을 구현하고, `LIFO` 순서와 Empty 상태를 테스트한다.
+
+### 핵심 코드
+
+```c
+#define STACK_CAPACITY 4U
+
+typedef struct
+{
+    int data[STACK_CAPACITY];
+    size_t top;
+} Stack;
+
+static StackResult stack_push(Stack *stack, int value)
+{
+    if (stack->top >= STACK_CAPACITY)
+    {
+        return STACK_FULL;
+    }
+
+    stack->data[stack->top] = value;
+    stack->top++;
+    return STACK_OK;
+}
+
+static StackResult stack_pop(Stack *stack, int *value)
+{
+    if (stack->top == 0U)
+    {
+        return STACK_EMPTY;
+    }
+
+    stack->top--;
+    *value = stack->data[stack->top];
+    return STACK_OK;
+}
+```
+
+### 코드 설명
+
+Stack은 `LIFO(Last In, First Out)` 구조다. `top`은 다음 값을 저장할 배열 위치이며, `push()`는 저장 후 `top`을 증가시킨다. `pop()`은 먼저 `top`을 감소시킨 뒤 그 위치의 값을 꺼낸다.
+
+```text
+push(10) → push(20) → pop() = 20 → pop() = 10
+```
+
+`top == STACK_CAPACITY`이면 `STACK_FULL`, `top == 0`이면 `STACK_EMPTY`를 반환한다. `stack_pop()`의 `int *value`는 꺼낸 값을 호출한 쪽 변수에 기록하기 위한 출력 포인터다.
+
+### 동작 흐름 또는 실행 결과
+
+`test_stack_lifo()`에서 10과 20을 순서대로 저장한 뒤 꺼내면 20, 10 순서로 반환된다. 빈 Stack에서 다시 꺼내면 `STACK_EMPTY`가 반환된다. 호스트 CMake 빌드와 CTest는 `1/1` 통과했다.
+
+### 배운 점
+
+- Stack의 핵심은 데이터가 아니라 삽입·삭제 순서인 LIFO다.
+- 고정 배열에서는 `top` 경계 검사가 Overflow를 막는다.
+- `pop()`은 Empty 상태를 먼저 검사해야 배열의 음수 인덱스 접근을 피할 수 있다.
+
+### 한 줄 정리
+
+배열 기반 Stack은 `top` 하나로 LIFO 순서를 관리하며, `push()`와 `pop()`에서 Full·Empty 경계를 검사한다.

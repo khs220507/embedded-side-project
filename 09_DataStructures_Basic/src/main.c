@@ -17,6 +17,21 @@ typedef struct
     size_t length;
 } CommandBuffer;
 
+#define STACK_CAPACITY 4U
+
+typedef struct
+{
+    int data[STACK_CAPACITY];
+    size_t top;
+} Stack;
+
+typedef enum
+{
+    STACK_OK,
+    STACK_EMPTY,
+    STACK_FULL
+} StackResult;
+
 static void command_buffer_reset(CommandBuffer *buffer)
 {
     buffer->length = 0U;
@@ -41,6 +56,35 @@ static CommandBufferResult command_buffer_append(CommandBuffer *buffer, char cha
     buffer->data[buffer->length] = '\0';
 
     return COMMAND_BUFFER_IN_PROGRESS;
+}
+
+static void stack_reset(Stack *stack)
+{
+    stack->top = 0U;
+}
+
+static StackResult stack_push(Stack *stack, int value)
+{
+    if (stack->top >= STACK_CAPACITY)
+    {
+        return STACK_FULL;
+    }
+
+    stack->data[stack->top] = value;
+    stack->top++;
+    return STACK_OK;
+}
+
+static StackResult stack_pop(Stack *stack, int *value)
+{
+    if (stack->top == 0U)
+    {
+        return STACK_EMPTY;
+    }
+
+    stack->top--;
+    *value = stack->data[stack->top];
+    return STACK_OK;
 }
 
 static bool expect(bool condition, const char *test_name)
@@ -92,9 +136,25 @@ static bool test_buffer_boundary(void)
            expect(strcmp(buffer.data, maximum_length_text) == 0, "overflow keeps existing data");
 }
 
+static bool test_stack_lifo(void)
+{
+    Stack stack;
+    int value = 0;
+
+    stack_reset(&stack);
+
+    return expect(stack_push(&stack, 10) == STACK_OK, "stack accepts first value") &&
+           expect(stack_push(&stack, 20) == STACK_OK, "stack accepts second value") &&
+           expect(stack_pop(&stack, &value) == STACK_OK && value == 20, "stack pops last value first") &&
+           expect(stack_pop(&stack, &value) == STACK_OK && value == 10, "stack pops first value second") &&
+           expect(stack_pop(&stack, &value) == STACK_EMPTY, "empty stack is rejected");
+}
+
 int main(void)
 {
-    const bool tests_passed = test_command_completion() && test_buffer_boundary();
+    const bool tests_passed = test_command_completion() &&
+                              test_buffer_boundary() &&
+                              test_stack_lifo();
 
     if (!tests_passed)
     {
