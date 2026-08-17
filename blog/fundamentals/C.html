@@ -43,7 +43,7 @@
     </div>
   </header>
   <main>
-    <nav class="toc" aria-label="문서 목차"><a href="../index.html">전체 목차</a><a href="#pointer">포인터</a><a href="#struct">구조체와 레지스터</a><a href="#state">enum 상태 머신</a><a href="#integer">고정 폭 정수형</a><a href="#summary">한 줄 정리</a></nav>
+    <nav class="toc" aria-label="문서 목차"><a href="../index.html">전체 목차</a><a href="#pointer">포인터</a><a href="#struct">구조체와 레지스터</a><a href="#state">enum 상태 머신</a><a href="#integer">고정 폭 정수형</a><a href="#architecture">32-bit와 64-bit</a><a href="#summary">한 줄 정리</a></nav>
     <article>
       <h2 id="pointer">GPIO 포트를 전달하는 포인터</h2>
       <p>서로 다른 GPIO Port에 연결된 LED를 하나의 함수로 제어하기 위해 Port는 포인터로, Pin은 값으로 전달했다.</p>
@@ -136,6 +136,28 @@ if ((HAL_GetTick() - lastDebounceTime) &gt;= BUTTON_DEBOUNCE_MS)
       <h3><code>U</code> 접미사와 <code>sizeof()</code></h3>
       <p><code>0U</code>와 <code>1U</code>의 <code>U</code>는 상수를 <code>unsigned int</code>로 취급한다는 뜻이다. <code>sizeof(message)</code>에는 C 문자열 끝의 <code>\0</code>도 포함되므로, 화면에 표시할 문자만 전송할 때 <code>1U</code>를 뺀다.</p>
       <ul><li>고정 폭 정수형은 레지스터, 통신 데이터, 시간처럼 크기가 중요한 코드의 의도를 분명하게 한다.</li><li>계산하는 값끼리 자료형을 맞추면 signed/unsigned 혼합을 줄일 수 있다.</li><li><code>sizeof()</code>는 배열 전체의 byte 크기를 계산한다.</li></ul>
+
+      <h2 id="architecture">DS-01에서 확인한 32-bit·64-bit와 구조체 크기</h2>
+      <h3>구현 목표</h3>
+      <p><code>09_DataStructures_Basic</code>의 <code>CommandBuffer</code> 선언을 기준으로 배열 크기, <code>size_t</code>, CPU bit 수, 구조체 크기의 관계를 구분한다.</p>
+      <pre><code>#define COMMAND_BUFFER_CAPACITY 16U
+
+typedef struct
+{
+    char data[COMMAND_BUFFER_CAPACITY];
+    size_t length;
+} CommandBuffer;</code></pre>
+      <h3>32-bit와 64-bit</h3>
+      <p>보통 PC 설정에서 <code>x86</code>은 32-bit, <code>x64</code>는 64-bit CPU·실행 환경을 뜻한다. <code>x32</code>는 일반적인 CPU 이름으로 쓰지 않으므로, 이 문서에서는 32-bit 환경을 <code>x86</code> 또는 32-bit라고 부른다.</p>
+      <table><thead><tr><th>실행 환경</th><th>주소·포인터 크기</th><th>이 학습과의 관계</th></tr></thead><tbody><tr><td>PC x64 (MSVC)</td><td>보통 8byte</td><td><code>size_t</code>도 보통 8byte</td></tr><tr><td>STM32F401RE (32-bit ARM Cortex-M4)</td><td>4byte</td><td><code>size_t</code>도 4byte</td></tr></tbody></table>
+      <p><code>size_t</code>는 배열 길이와 메모리 크기를 표현하는 unsigned 자료형이다. 정확한 크기는 컴파일 대상에 따라 달라진다.</p>
+      <h3><code>CommandBuffer</code> 크기</h3>
+      <p><code>char</code>는 1byte이므로 <code>data[16]</code>은 항상 16byte다. 전체 구조체에는 <code>length</code>도 포함된다.</p>
+      <pre><code>PC x64의 일반적인 계산:  data[16] 16byte + size_t 8byte = 24byte
+STM32F401RE의 일반적인 계산: data[16] 16byte + size_t 4byte = 20byte</code></pre>
+      <p>멤버 순서와 CPU 정렬 규칙에 따라 Padding byte가 들어갈 수도 있다. 정확한 크기는 대상 환경에서 <code>sizeof(CommandBuffer)</code>로 확인한다. 현재 DS-01은 이 값을 출력하지 않았으므로 위 수치는 실행 출력이 아닌 자료형 크기 계산이다.</p>
+      <h3>빌드 상태와 배운 점</h3>
+      <ul><li>PC x64 MSVC Build Tools에서 CMake 빌드와 CTest 1개가 통과했다.</li><li>STM32CubeIDE ARM GCC에서 문법·경고 검사를 통과했다.</li><li>배열 크기와 구조체 전체 크기는 다르며, 같은 C 코드도 대상 환경에 따라 <code>size_t</code> 크기가 달라질 수 있다.</li></ul>
 
       <h2 id="summary">한 줄 정리</h2>
       <p class="summary"><strong>포인터와 구조체로 하드웨어 레지스터를 표현하고, <code>enum</code> 상태 머신과 고정 폭 정수형으로 임베디드 코드의 의미와 데이터 크기를 명확하게 만들었다.</strong></p>

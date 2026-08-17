@@ -367,3 +367,68 @@ sizeof(message) - 1U
 ### 한 줄 정리
 
 임베디드 코드에서는 데이터의 실제 크기와 용도를 명확히 하기 위해 `uint8_t`, `uint16_t`, `uint32_t` 같은 고정 폭 정수형을 사용한다.
+
+---
+
+## DS-01에서 확인한 32-bit·64-bit와 구조체 크기
+
+### 구현 목표
+
+`09_DataStructures_Basic`의 `CommandBuffer` 선언을 기준으로 배열 크기, `size_t`, CPU bit 수, 구조체 크기의 관계를 구분한다.
+
+### 핵심 코드
+
+```c
+#define COMMAND_BUFFER_CAPACITY 16U
+
+typedef struct
+{
+    char data[COMMAND_BUFFER_CAPACITY];
+    size_t length;
+} CommandBuffer;
+```
+
+### 32-bit와 64-bit
+
+보통 PC 설정에서 `x86`은 32-bit, `x64`는 64-bit CPU·실행 환경을 뜻한다. `x32`라는 표기는 일반적인 CPU 이름으로는 쓰지 않으므로, 여기서는 32-bit 환경을 `x86` 또는 32-bit라고 부른다.
+
+| 실행 환경 | 주소·포인터 크기 | 이 학습과의 관계 |
+|---|---:|---|
+| PC x64 (MSVC) | 보통 8byte | `size_t`도 보통 8byte |
+| STM32F401RE (32-bit ARM Cortex-M4) | 4byte | `size_t`도 4byte |
+
+`size_t`는 배열의 길이와 메모리 크기를 표현하는 unsigned 자료형이다. 정확한 byte 수는 컴파일 대상에 따라 달라지므로, 고정 폭이 필요한 통신 데이터에는 `uint32_t`처럼 크기가 이름에 있는 자료형을 사용한다.
+
+### `CommandBuffer` 크기 계산
+
+`char`는 1byte이므로 `data[16]`은 항상 16byte다. 구조체 전체에는 `length`도 포함된다.
+
+```text
+PC x64의 일반적인 계산
+data[16]  : 16byte
+size_t    :  8byte
+합계      : 24byte
+
+STM32F401RE의 일반적인 계산
+data[16]  : 16byte
+size_t    :  4byte
+합계      : 20byte
+```
+
+구조체 멤버의 순서와 CPU 정렬 규칙에 따라 Padding byte가 들어갈 수도 있다. 정확한 전체 크기는 대상 환경에서 `sizeof(CommandBuffer)`로 확인한다. 현재 DS-01은 `sizeof()` 값을 출력하지 않았으므로, 위 값은 자료형 크기에 따른 계산이며 실행 출력으로 검증한 값은 아니다.
+
+### 빌드 상태
+
+- PC x64 MSVC Build Tools에서 CMake 빌드와 CTest 1개 통과
+- STM32CubeIDE의 ARM GCC에서 문법·경고 검사 통과
+- 이 챕터는 PC C 학습 코드이므로 STM32 보드 다운로드·검증은 하지 않음
+
+### 배운 점
+
+- 배열의 칸 수는 `COMMAND_BUFFER_CAPACITY`가 컴파일 전에 정한다.
+- `data` 배열의 크기와 구조체 전체 크기는 다르다.
+- 같은 C 코드라도 PC x64와 STM32 32-bit ARM에서 `size_t`·포인터 크기가 달라질 수 있다.
+
+### 한 줄 정리
+
+`CommandBuffer`의 문자 배열은 항상 16byte지만, `size_t`와 정렬 규칙 때문에 전체 구조체 크기는 빌드 대상에 따라 달라진다.
