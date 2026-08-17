@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32 자료구조: 배열과 문자열 Buffer</title>
+  <style>
+    :root { --text:#222; --muted:#666; --line:#e5e5e5; --primary:#2563eb; --soft:#f6f8fa; }
+    * { box-sizing:border-box; } html { scroll-behavior:smooth; } body { margin:0; color:var(--text); background:#fff; font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; word-break:keep-all; }
+    .hero { padding:56px 24px 36px; border-bottom:1px solid var(--line); } .hero-inner,main { width:min(820px,calc(100% - 40px)); margin:0 auto; } .eyebrow { margin:0 0 6px; color:var(--primary); font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; } h1 { margin:0; font-size:clamp(34px,6vw,46px); line-height:1.2; letter-spacing:-.035em; } .hero-description { margin:12px 0 0; color:var(--muted); }
+    main { padding:32px 0 72px; } .toc { display:flex; flex-wrap:wrap; gap:8px 18px; margin-bottom:44px; padding-bottom:24px; border-bottom:1px solid var(--line); } .toc a { color:var(--muted); font-size:14px; text-decoration:none; } .toc a:hover { color:var(--primary); } h2 { margin:0 0 18px; font-size:28px; line-height:1.35; letter-spacing:-.025em; } h2:not(:first-child) { margin-top:64px; padding-top:48px; border-top:1px solid var(--line); } p { margin:12px 0; } code { padding:2px 5px; border-radius:4px; color:#1d4ed8; background:#eef3ff; font-family:Consolas,"Courier New",monospace; font-size:.92em; } pre { overflow-x:auto; margin:16px 0; padding:16px; border:1px solid var(--line); border-radius:6px; background:var(--soft); line-height:1.6; } pre code { padding:0; color:inherit; background:transparent; font-size:14px; } ul { padding-left:24px; } li { margin:6px 0; } .diagram { margin:20px 0; padding:20px; border:1px solid var(--line); border-radius:8px; background:var(--soft); } .diagram-row { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:10px; } .node { padding:9px 14px; border:1px solid #cfd6df; border-radius:6px; background:#fff; font-weight:650; text-align:center; } .node.primary { color:#fff; border-color:var(--primary); background:var(--primary); } .arrow { color:#888; font-weight:700; } .summary { margin-top:24px; padding:14px 16px; border-left:3px solid var(--primary); background:var(--soft); }
+    @media (max-width:700px) { .hero { padding:40px 20px 28px; } .hero-inner,main { width:min(100% - 28px,820px); } main { padding-top:24px; } h2 { font-size:25px; } .diagram { padding:16px; } }
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 자료구조: 배열과 문자열 Buffer</h1><p class="hero-description">고정 길이 Command Buffer로 배열 Index, 문자열 끝 문자, 경계 검사를 학습한다.</p></div></header>
+  <main><nav class="toc"><a href="#concept">기본 개념</a><a href="#goal">구현 목표</a><a href="#code">핵심 코드</a><a href="#flow">동작 흐름</a><a href="#result">실행 결과</a><a href="#learned">배운 점</a></nav><article>
+    <section id="concept"><h2>기본 개념</h2><p>C 문자열은 문자 배열의 마지막 <code>\0</code>으로 끝난다. 따라서 배열의 전체 용량을 문자 데이터에 모두 쓰면 안 된다.</p><div class="diagram"><div class="diagram-row"><div class="node">문자 입력</div><div class="arrow">→</div><div class="node primary">CommandBuffer</div><div class="arrow">→</div><div class="node">완성된 명령</div></div></div></section>
+    <section id="goal"><h2>구현 목표</h2><ul><li>고정 길이 <code>char</code> 배열에 명령을 저장한다.</li><li><code>length</code>로 다음 저장 위치를 관리한다.</li><li><code>\n</code>에서 명령을 완료하고, Overflow는 거부한다.</li></ul></section>
+    <section id="code"><h2>핵심 코드</h2><pre><code>typedef struct
+{
+    char data[COMMAND_BUFFER_CAPACITY];
+    size_t length;
+} CommandBuffer;</code></pre><p><code>command_buffer_append()</code>는 글자를 추가한 뒤 항상 <code>\0</code>을 기록한다. 용량이 16이면 실제 Payload는 15글자까지다.</p></section>
+    <section id="flow"><h2>동작 흐름</h2><div class="diagram"><div class="diagram-row"><div class="node">문자 추가</div><div class="arrow">→</div><div class="node">경계 검사</div><div class="arrow">→</div><div class="node">\n 확인</div><div class="arrow">→</div><div class="node primary">완료 또는 계속</div></div></div><p>경계를 넘으면 기존 Buffer는 유지하고 <code>COMMAND_BUFFER_FULL</code>을 반환한다.</p></section>
+    <section id="result"><h2>실행 결과</h2><ul><li><code>arm-none-eabi-gcc</code>의 엄격한 문법·경고 검사를 통과했다.</li><li>현재 환경에는 native C compiler가 없어 호스트 CTest 실행은 추가 확인이 필요하다.</li><li>STM32 보드 검증은 하지 않았다. 다음 단계에서 UART DMA 수신 흐름에 연결한다.</li></ul></section>
+    <section id="learned"><h2>배운 점</h2><p>고정 배열의 경계 검사와 <code>\0</code> 예약은 임베디드 문자열 처리의 기본 안전 장치다. 원형 버퍼도 이 배열·Index·길이 관리 개념에서 출발한다.</p><div class="summary">한 줄 정리: 고정 길이 Command Buffer는 배열 범위를 지키면서 한 줄 명령을 모으는 가장 단순한 자료구조다.</div></section>
+  </article></main>
+</body>
+</html>
