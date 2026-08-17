@@ -12,10 +12,12 @@
 ## 실행
 
 ```powershell
-cmake -S . -B build
-cmake --build build
-ctest --test-dir build --output-on-failure
+cmake --preset vs2022-x64
+cmake --build --preset vs2022-x64-debug
+ctest --preset vs2022-x64-debug
 ```
+
+VS Code에서는 저장소 루트를 연 채 CMake Tools의 Configure·Build·Test 버튼을 사용한다. `.vscode/settings.json`이 이 폴더와 `vs2022-x64` Preset을 자동으로 선택한다.
 
 ## 현재 상태
 

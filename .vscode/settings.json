@@ -1,0 +1,5 @@
+{
+  "cmake.sourceDirectory": "${workspaceFolder}/09_DataStructures_Basic",
+  "cmake.useCMakePresets": "always",
+  "cmake.configurePreset": "vs2022-x64"
+}
