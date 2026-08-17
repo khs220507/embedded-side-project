@@ -23,7 +23,7 @@
     size_t length;
 } CommandBuffer;</code></pre><p><code>command_buffer_append()</code>는 글자를 추가한 뒤 항상 <code>\0</code>을 기록한다. 용량이 16이면 실제 Payload는 15글자까지다.</p></section>
     <section id="flow"><h2>동작 흐름</h2><div class="diagram"><div class="diagram-row"><div class="node">문자 추가</div><div class="arrow">→</div><div class="node">경계 검사</div><div class="arrow">→</div><div class="node">\n 확인</div><div class="arrow">→</div><div class="node primary">완료 또는 계속</div></div></div><p>경계를 넘으면 기존 Buffer는 유지하고 <code>COMMAND_BUFFER_FULL</code>을 반환한다.</p></section>
-    <section id="result"><h2>실행 결과</h2><ul><li><code>arm-none-eabi-gcc</code>의 엄격한 문법·경고 검사를 통과했다.</li><li>현재 환경에는 native C compiler가 없어 호스트 CTest 실행은 추가 확인이 필요하다.</li><li>STM32 보드 검증은 하지 않았다. 다음 단계에서 UART DMA 수신 흐름에 연결한다.</li></ul></section>
+    <section id="result"><h2>실행 결과</h2><ul><li><code>arm-none-eabi-gcc</code>의 엄격한 문법·경고 검사를 통과했다.</li><li>MSVC Build Tools에서 호스트 CMake 빌드와 CTest를 실행했고, 1개 테스트가 통과했다.</li><li>STM32 보드 검증은 하지 않았다. 다음 단계에서 UART DMA 수신 흐름에 연결한다.</li></ul></section>
     <section id="learned"><h2>배운 점</h2><p>고정 배열의 경계 검사와 <code>\0</code> 예약은 임베디드 문자열 처리의 기본 안전 장치다. 원형 버퍼도 이 배열·Index·길이 관리 개념에서 출발한다.</p><div class="summary">한 줄 정리: 고정 길이 Command Buffer는 배열 범위를 지키면서 한 줄 명령을 모으는 가장 단순한 자료구조다.</div></section>
   </article></main>
 </body>

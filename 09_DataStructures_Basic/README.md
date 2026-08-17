@@ -21,5 +21,5 @@ ctest --test-dir build --output-on-failure
 
 - 구현: 완료
 - ARM GCC 문법·경고 검사: 완료 (`-Wall -Wextra -Wpedantic -Werror`)
-- 호스트 빌드·테스트: 추가 확인 필요 — 현재 작업 환경에 native C compiler가 없음
+- 호스트 CMake 빌드·CTest: 완료 (MSVC Build Tools, 1/1 통과)
 - STM32 보드 검증: 해당 없음 — 다음 단계에서 UART DMA 코드와 연결

@@ -7,7 +7,7 @@
 | 3 | 줄바꿈 완료·널 종료 문자 처리 구현 | 완료 |
 | 4 | Buffer 경계·Overflow 거부 테스트 구현 | 완료 |
 | 5 | ARM GCC 문법·경고 검사 | 완료 |
-| 6 | 호스트 CMake 빌드와 CTest 실행 | 추가 확인 필요 — native C compiler 없음 |
+| 6 | 호스트 CMake 빌드와 CTest 실행 | 완료 — MSVC Build Tools, 1/1 통과 |
 | 7 | `03_UART_DMA` 수신 Buffer와 연결 | 예정 |
 
 이 챕터는 STM32 보드 Peripheral을 새로 제어하지 않는 C 기초 학습이므로 보드 검증 대상이 아니다.

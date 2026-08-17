@@ -27,7 +27,7 @@ typedef struct
 ### 실행 결과
 
 - `arm-none-eabi-gcc`로 `-Wall -Wextra -Wpedantic -Werror` 조건의 문법·경고 검사를 통과했다.
-- 현재 환경에는 native C compiler가 없어 호스트 실행 파일과 CTest 실행은 추가 확인이 필요하다.
+- MSVC Build Tools에서 호스트 CMake 빌드와 CTest를 실행했고, 1개 테스트가 통과했다.
 - STM32 보드 검증은 아직 하지 않았다. 이 챕터는 PC C 코드이며, 다음 단계에서 UART DMA 수신 흐름과 연결한다.
 
 ### 배운 점
