@@ -439,7 +439,25 @@ size_t    :  4byte
 
 ### 구현 목표
 
-`CommandBuffer`를 함수에 전달하면서 구조체 변수, 구조체 포인터, 주소 연산자와 역참조 연산자의 관계를 이해한다.
+`CommandBuffer`로 관련 데이터를 하나의 자료형으로 묶고, 이 구조체를 함수에 전달하면서 구조체 변수, 구조체 포인터, 주소 연산자와 역참조 연산자의 관계를 이해한다.
+
+### `typedef struct`로 `CommandBuffer` 자료형 정의
+
+```c
+typedef struct
+{
+    char data[COMMAND_BUFFER_CAPACITY];
+    size_t length;
+} CommandBuffer;
+```
+
+`struct`는 서로 관련된 여러 값을 하나의 자료형으로 묶는다. 여기서는 명령 문자를 저장하는 `data`와 현재 저장된 문자 수인 `length`를 함께 관리한다. `typedef`는 이 구조체 자료형에 `CommandBuffer`라는 이름을 붙인다. 따라서 이후 코드에서는 `struct ...`를 반복하지 않고 다음처럼 변수를 선언할 수 있다.
+
+```c
+CommandBuffer buffer;
+```
+
+`data`의 배열 칸 수는 `COMMAND_BUFFER_CAPACITY`로 정하고, `length`는 다음 문자를 저장할 위치이자 현재 저장된 문자 수를 나타낸다.
 
 ### 핵심 코드
 
@@ -458,7 +476,8 @@ static void command_buffer_reset(CommandBuffer *buffer)
 
 ### 코드 설명
 
-- `buffer`: 구조체 변수 자체
+- `CommandBuffer buffer`: `data`와 `length`를 가진 구조체 변수 선언
+- `buffer.length`, `buffer.data[0]`: 구조체 변수의 멤버에는 `.`으로 접근
 - `&buffer`: 구조체 변수의 메모리 주소
 - `CommandBuffer *buffer`: `CommandBuffer`를 가리키는 포인터 매개변수
 - `*pointer`: 포인터가 가리키는 실제 구조체에 접근
@@ -471,6 +490,13 @@ pointer->length;
 (*pointer).length;
 ```
 
+괄호가 필요한 이유는 `.` 연산을 하기 전에 `*pointer`로 포인터를 역참조해야 하기 때문이다. 현재 함수의 두 문장도 다음처럼 바꿔 쓸 수 있다.
+
+```c
+(*buffer).length = 0U;
+(*buffer).data[0] = '\0';
+```
+
 `*`는 선언과 표현식에서 역할이 다르다.
 
 ```c
@@ -478,7 +504,7 @@ CommandBuffer *pointer;  // 포인터 변수 선언
 (*pointer).length = 0U;  // 포인터가 가리키는 구조체의 멤버 수정
 ```
 
-`command_buffer_reset(&buffer)`처럼 주소를 전달하는 이유는 함수가 원본 구조체의 `length`와 `data`를 직접 수정하게 하기 위해서다. 값을 복사해 전달했다면 함수가 끝난 뒤 원래 Buffer에는 변경 내용이 남지 않는다.
+`command_buffer_reset(&buffer)`에서 호출하는 쪽의 `&`는 구조체 변수의 주소를 구한다. 함수는 그 주소를 `CommandBuffer *buffer`로 받아 `buffer->length`와 `buffer->data[0]`을 수정한다. 따라서 함수가 끝난 뒤에도 호출한 쪽의 원본 `buffer`는 빈 문자열 상태로 초기화되어 있다. 값을 복사해 전달했다면 함수 안에서 복사본만 바뀌므로 원본에는 변경 내용이 남지 않는다.
 
 ### 배운 점
 
@@ -487,3 +513,72 @@ CommandBuffer *pointer;  // 포인터 변수 선언
 ### 한 줄 정리
 
 `&buffer`로 주소를 전달하고 `buffer->member`로 원본 구조체를 수정하는 것이 C 포인터 매개변수의 기본 사용 방식이다.
+
+---
+
+## 문자 하나씩 처리하는 `command_buffer_append()`
+
+### 구현 목표
+
+`09_DataStructures_Basic/src/main.c`의 `command_buffer_append()`를 통해 입력 문자를 하나씩 Buffer에 저장하고, 명령 완료와 Overflow를 구분한다.
+
+### 핵심 코드
+
+```c
+static CommandBufferResult command_buffer_append(CommandBuffer *buffer, char character)
+{
+    if (character == '\n')
+    {
+        buffer->data[buffer->length] = '\0';
+        return COMMAND_BUFFER_COMPLETE;
+    }
+
+    if (buffer->length >= (COMMAND_BUFFER_CAPACITY - 1U))
+    {
+        return COMMAND_BUFFER_FULL;
+    }
+
+    buffer->data[buffer->length] = character;
+    buffer->length++;
+    buffer->data[buffer->length] = '\0';
+
+    return COMMAND_BUFFER_IN_PROGRESS;
+}
+```
+
+### 코드 설명
+
+이 함수는 반복문을 직접 실행하지 않고, 호출될 때마다 문자 하나만 처리한다. 반복은 현재 테스트의 `test_command_completion()`이 담당한다.
+
+- `character == '\n'`: 현재 문자열 뒤에 `\0`을 기록하고 `COMMAND_BUFFER_COMPLETE`를 반환한다.
+- `length >= COMMAND_BUFFER_CAPACITY - 1U`: 문자열 종료 문자 공간을 남겨 두고 `COMMAND_BUFFER_FULL`을 반환한다.
+- 정상 입력: `data[length]`에 문자를 기록한 뒤 `length`를 1 증가시킨다.
+- 증가한 위치에 다시 `\0`을 기록하므로 입력 중에도 `data`는 C 문자열 상태를 유지한다.
+
+`COMMAND_BUFFER_CAPACITY`가 16이면 실제 입력 문자는 최대 15개다. `data[15]`는 `\0`을 위한 공간으로 예약된다.
+
+### 동작 흐름 또는 실행 결과
+
+`test_command_completion()`은 `"led red\n"`의 문자를 하나씩 전달한다. 마지막 `\n`에서 완료 상태가 되고, 저장 결과는 `"led red"`, `length`는 7이 된다.
+
+`test_buffer_boundary()`는 15문자를 먼저 저장한 뒤 16번째 문자를 추가한다. 이때 함수는 배열에 쓰지 않고 `COMMAND_BUFFER_FULL`을 반환하며 기존 문자열을 보존한다.
+
+```text
+문자 하나 입력
+  ├─ '\n'       → COMPLETE
+  ├─ 공간 부족  → FULL
+  └─ 그 외      → 저장·length 증가·IN_PROGRESS
+```
+
+호스트 CMake 빌드와 CTest에서 `1/1` 테스트 통과를 다시 확인했다. 이 챕터는 PC에서 실행하는 C 학습 코드이므로 STM32 보드 검증 대상은 아니다.
+
+### 배운 점
+
+- 입력 반복과 문자 처리 함수를 분리하면 함수의 책임이 작아진다.
+- `length`는 현재 저장된 문자 수이면서 다음 저장 위치를 나타낸다.
+- Overflow는 배열 밖에 쓰고 나서 처리하는 것이 아니라, 쓰기 전에 검사하고 거부해야 한다.
+- 문자열 Buffer에서는 실제 데이터와 `\0` 종료 문자를 함께 고려해야 한다.
+
+### 한 줄 정리
+
+`command_buffer_append()`는 문자 하나를 안전하게 저장하고 `IN_PROGRESS`, `COMPLETE`, `FULL` 상태로 입력 흐름을 알려 준다.
