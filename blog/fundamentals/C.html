@@ -268,6 +268,62 @@ static StackResult stack_pop(Stack *stack, int *value)
       <h3>한 줄 정리</h3>
       <p class="summary"><strong>배열 기반 Stack은 <code>top</code> 하나로 LIFO 순서를 관리하며, <code>push()</code>와 <code>pop()</code>에서 Full·Empty 경계를 검사한다.</strong></p>
 
+      <h2 id="queue">배열 기반 Queue: <code>enqueue()</code>와 <code>dequeue()</code></h2>
+      <h3>구현 목표</h3>
+      <p><code>09_DataStructures_Basic/src/main.c</code>에서 고정 크기 배열로 Queue를 구현하고, <code>FIFO</code> 순서와 Empty 상태를 테스트한다.</p>
+      <h3>핵심 코드</h3>
+      <pre><code>#define QUEUE_CAPACITY 4U
+
+typedef struct
+{
+    int data[QUEUE_CAPACITY];
+    size_t head;
+    size_t tail;
+    size_t count;
+} Queue;
+
+static QueueResult queue_enqueue(Queue *queue, int value)
+{
+    if (queue-&gt;tail &gt;= QUEUE_CAPACITY)
+    {
+        return QUEUE_FULL;
+    }
+
+    queue-&gt;data[queue-&gt;tail] = value;
+    queue-&gt;tail++;
+    queue-&gt;count++;
+    return QUEUE_OK;
+}
+
+static QueueResult queue_dequeue(Queue *queue, int *value)
+{
+    if (queue-&gt;count == 0U)
+    {
+        return QUEUE_EMPTY;
+    }
+
+    *value = queue-&gt;data[queue-&gt;head];
+    queue-&gt;head++;
+    queue-&gt;count--;
+
+    if (queue-&gt;count == 0U)
+    {
+        queue-&gt;head = 0U;
+        queue-&gt;tail = 0U;
+    }
+
+    return QUEUE_OK;
+}</code></pre>
+      <h3>코드 설명</h3>
+      <p>Queue는 <code>FIFO(First In, First Out)</code> 구조다. <code>head</code>는 꺼낼 위치, <code>tail</code>은 다음에 저장할 위치, <code>count</code>는 현재 저장된 데이터 수를 나타낸다.</p>
+      <p>이번 기본 Queue는 <code>tail</code>이 배열 끝에 도달하면 <code>QUEUE_FULL</code>을 반환한다. Queue가 완전히 비면 <code>head</code>와 <code>tail</code>을 0으로 되돌린다. 배열 끝에서 처음으로 순환시키는 확장은 다음 DS-04 Ring Buffer에서 다룬다.</p>
+      <h3>동작 흐름 또는 실행 결과</h3>
+      <p><code>enqueue(10)</code> → <code>enqueue(20)</code> → <code>dequeue() = 10</code> → <code>dequeue() = 20</code> 순서로 동작한다. <code>test_queue_fifo()</code>에서 FIFO 순서와 빈 Queue의 <code>QUEUE_EMPTY</code> 처리를 확인했으며, 호스트 CMake 빌드와 CTest는 <code>1/1</code> 통과했다.</p>
+      <h3>배운 점</h3>
+      <ul><li>Queue의 핵심은 FIFO 순서다.</li><li><code>head</code>와 <code>tail</code>을 분리하면 저장 위치와 꺼낼 위치를 독립적으로 관리할 수 있다.</li><li><code>count == 0</code> 검사는 Empty 상태를 안전하게 처리한다.</li><li>배열 끝을 넘어 다시 처음으로 연결하는 기능은 Ring Buffer의 역할이다.</li></ul>
+      <h3>한 줄 정리</h3>
+      <p class="summary"><strong>배열 기반 Queue는 <code>head</code>, <code>tail</code>, <code>count</code>로 FIFO 순서를 관리하며, 기본 구현에서는 배열 끝과 Empty 경계를 검사한다.</strong></p>
+
       <h2 id="summary">한 줄 정리</h2>
       <p class="summary"><strong>포인터와 구조체로 하드웨어 레지스터를 표현하고, <code>enum</code> 상태 머신과 고정 폭 정수형으로 임베디드 코드의 의미와 데이터 크기를 명확하게 만들었다.</strong></p>
     </article>

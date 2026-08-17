@@ -9,7 +9,7 @@
 | 5 | ARM GCC 문법·경고 검사 | 완료 |
 | 6 | 호스트 CMake 빌드와 CTest 실행 | 완료 — MSVC Build Tools, 1/1 통과 |
 | 7 | 배열 기반 Stack의 `push`·`pop` 구현 | 완료 — LIFO·Empty 테스트 통과 |
-| 8 | 배열 기반 Queue 구현 | 예정 |
+| 8 | 배열 기반 Queue의 `enqueue`·`dequeue` 구현 | 완료 — FIFO·Empty 테스트 통과 |
 | 9 | 원형 버퍼(Ring Buffer) 구현 | 예정 |
 | 10 | `03_UART_DMA` 수신 Buffer와 연결 | 예정 |
 

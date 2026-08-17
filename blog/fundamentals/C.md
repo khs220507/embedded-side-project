@@ -650,3 +650,83 @@ push(10) → push(20) → pop() = 20 → pop() = 10
 ### 한 줄 정리
 
 배열 기반 Stack은 `top` 하나로 LIFO 순서를 관리하며, `push()`와 `pop()`에서 Full·Empty 경계를 검사한다.
+
+---
+
+## 배열 기반 Queue: `enqueue()`와 `dequeue()`
+
+### 구현 목표
+
+`09_DataStructures_Basic/src/main.c`에서 고정 크기 배열로 Queue를 구현하고, `FIFO` 순서와 Empty 상태를 테스트한다.
+
+### 핵심 코드
+
+```c
+#define QUEUE_CAPACITY 4U
+
+typedef struct
+{
+    int data[QUEUE_CAPACITY];
+    size_t head;
+    size_t tail;
+    size_t count;
+} Queue;
+
+static QueueResult queue_enqueue(Queue *queue, int value)
+{
+    if (queue->tail >= QUEUE_CAPACITY)
+    {
+        return QUEUE_FULL;
+    }
+
+    queue->data[queue->tail] = value;
+    queue->tail++;
+    queue->count++;
+    return QUEUE_OK;
+}
+
+static QueueResult queue_dequeue(Queue *queue, int *value)
+{
+    if (queue->count == 0U)
+    {
+        return QUEUE_EMPTY;
+    }
+
+    *value = queue->data[queue->head];
+    queue->head++;
+    queue->count--;
+
+    if (queue->count == 0U)
+    {
+        queue->head = 0U;
+        queue->tail = 0U;
+    }
+
+    return QUEUE_OK;
+}
+```
+
+### 코드 설명
+
+Queue는 `FIFO(First In, First Out)` 구조다. `head`는 꺼낼 위치, `tail`은 다음에 저장할 위치, `count`는 현재 저장된 데이터 수를 나타낸다.
+
+```text
+enqueue(10) → enqueue(20) → dequeue() = 10 → dequeue() = 20
+```
+
+이번 기본 Queue는 `tail`이 배열 끝에 도달하면 `QUEUE_FULL`을 반환한다. Queue가 완전히 비면 `head`와 `tail`을 0으로 되돌려 다음 입력을 배열 처음부터 받을 수 있게 한다. 인덱스를 배열 끝에서 처음으로 순환시키는 확장은 다음 DS-04 Ring Buffer에서 다룬다.
+
+### 동작 흐름 또는 실행 결과
+
+`test_queue_fifo()`에서 10과 20을 순서대로 넣은 뒤 꺼내면 10, 20 순서로 반환된다. 빈 Queue에서 다시 꺼내면 `QUEUE_EMPTY`가 반환된다. 호스트 CMake 빌드와 CTest는 `1/1` 통과했다.
+
+### 배운 점
+
+- Queue의 핵심은 FIFO 순서다.
+- `head`와 `tail`을 분리하면 저장 위치와 꺼낼 위치를 독립적으로 관리할 수 있다.
+- `count == 0` 검사는 Empty 상태를 안전하게 처리한다.
+- 배열 끝을 넘어 다시 처음으로 연결하는 기능은 Ring Buffer의 역할이다.
+
+### 한 줄 정리
+
+배열 기반 Queue는 `head`, `tail`, `count`로 FIFO 순서를 관리하며, 기본 구현에서는 배열 끝과 Empty 경계를 검사한다.

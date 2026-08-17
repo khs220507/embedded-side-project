@@ -32,6 +32,23 @@ typedef enum
     STACK_FULL
 } StackResult;
 
+#define QUEUE_CAPACITY 4U
+
+typedef struct
+{
+    int data[QUEUE_CAPACITY];
+    size_t head;
+    size_t tail;
+    size_t count;
+} Queue;
+
+typedef enum
+{
+    QUEUE_OK,
+    QUEUE_EMPTY,
+    QUEUE_FULL
+} QueueResult;
+
 static void command_buffer_reset(CommandBuffer *buffer)
 {
     buffer->length = 0U;
@@ -85,6 +102,46 @@ static StackResult stack_pop(Stack *stack, int *value)
     stack->top--;
     *value = stack->data[stack->top];
     return STACK_OK;
+}
+
+static void queue_reset(Queue *queue)
+{
+    queue->head = 0U;
+    queue->tail = 0U;
+    queue->count = 0U;
+}
+
+static QueueResult queue_enqueue(Queue *queue, int value)
+{
+    if (queue->tail >= QUEUE_CAPACITY)
+    {
+        return QUEUE_FULL;
+    }
+
+    queue->data[queue->tail] = value;
+    queue->tail++;
+    queue->count++;
+    return QUEUE_OK;
+}
+
+static QueueResult queue_dequeue(Queue *queue, int *value)
+{
+    if (queue->count == 0U)
+    {
+        return QUEUE_EMPTY;
+    }
+
+    *value = queue->data[queue->head];
+    queue->head++;
+    queue->count--;
+
+    if (queue->count == 0U)
+    {
+        queue->head = 0U;
+        queue->tail = 0U;
+    }
+
+    return QUEUE_OK;
 }
 
 static bool expect(bool condition, const char *test_name)
@@ -150,11 +207,26 @@ static bool test_stack_lifo(void)
            expect(stack_pop(&stack, &value) == STACK_EMPTY, "empty stack is rejected");
 }
 
+static bool test_queue_fifo(void)
+{
+    Queue queue;
+    int value = 0;
+
+    queue_reset(&queue);
+
+    return expect(queue_enqueue(&queue, 10) == QUEUE_OK, "queue accepts first value") &&
+           expect(queue_enqueue(&queue, 20) == QUEUE_OK, "queue accepts second value") &&
+           expect(queue_dequeue(&queue, &value) == QUEUE_OK && value == 10, "queue returns first value first") &&
+           expect(queue_dequeue(&queue, &value) == QUEUE_OK && value == 20, "queue keeps FIFO order") &&
+           expect(queue_dequeue(&queue, &value) == QUEUE_EMPTY, "empty queue is rejected");
+}
+
 int main(void)
 {
     const bool tests_passed = test_command_completion() &&
                               test_buffer_boundary() &&
-                              test_stack_lifo();
+                              test_stack_lifo() &&
+                              test_queue_fifo();
 
     if (!tests_passed)
     {
