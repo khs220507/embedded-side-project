@@ -432,3 +432,58 @@ size_t    :  4byte
 ### 한 줄 정리
 
 `CommandBuffer`의 문자 배열은 항상 16byte지만, `size_t`와 정렬 규칙 때문에 전체 구조체 크기는 빌드 대상에 따라 달라진다.
+
+---
+
+## 구조체 변수와 구조체 포인터: `&`, `*`, `->`
+
+### 구현 목표
+
+`CommandBuffer`를 함수에 전달하면서 구조체 변수, 구조체 포인터, 주소 연산자와 역참조 연산자의 관계를 이해한다.
+
+### 핵심 코드
+
+```c
+CommandBuffer buffer;
+command_buffer_reset(&buffer);
+```
+
+```c
+static void command_buffer_reset(CommandBuffer *buffer)
+{
+    buffer->length = 0U;
+    buffer->data[0] = '\0';
+}
+```
+
+### 코드 설명
+
+- `buffer`: 구조체 변수 자체
+- `&buffer`: 구조체 변수의 메모리 주소
+- `CommandBuffer *buffer`: `CommandBuffer`를 가리키는 포인터 매개변수
+- `*pointer`: 포인터가 가리키는 실제 구조체에 접근
+- `pointer->member`: 구조체 포인터의 멤버에 접근
+
+`->`는 다음 표현을 짧게 쓴 것이다.
+
+```c
+pointer->length;
+(*pointer).length;
+```
+
+`*`는 선언과 표현식에서 역할이 다르다.
+
+```c
+CommandBuffer *pointer;  // 포인터 변수 선언
+(*pointer).length = 0U;  // 포인터가 가리키는 구조체의 멤버 수정
+```
+
+`command_buffer_reset(&buffer)`처럼 주소를 전달하는 이유는 함수가 원본 구조체의 `length`와 `data`를 직접 수정하게 하기 위해서다. 값을 복사해 전달했다면 함수가 끝난 뒤 원래 Buffer에는 변경 내용이 남지 않는다.
+
+### 배운 점
+
+구조체 변수에는 `.`, 구조체 포인터에는 `->`를 사용한다. `&`는 주소를 얻고, `*`는 그 주소가 가리키는 대상을 사용한다.
+
+### 한 줄 정리
+
+`&buffer`로 주소를 전달하고 `buffer->member`로 원본 구조체를 수정하는 것이 C 포인터 매개변수의 기본 사용 방식이다.

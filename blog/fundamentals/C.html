@@ -43,7 +43,7 @@
     </div>
   </header>
   <main>
-    <nav class="toc" aria-label="문서 목차"><a href="../index.html">전체 목차</a><a href="#pointer">포인터</a><a href="#struct">구조체와 레지스터</a><a href="#state">enum 상태 머신</a><a href="#integer">고정 폭 정수형</a><a href="#architecture">32-bit와 64-bit</a><a href="#summary">한 줄 정리</a></nav>
+    <nav class="toc" aria-label="문서 목차"><a href="../index.html">전체 목차</a><a href="#pointer">포인터</a><a href="#struct">구조체와 레지스터</a><a href="#state">enum 상태 머신</a><a href="#integer">고정 폭 정수형</a><a href="#architecture">32-bit와 64-bit</a><a href="#struct-pointer">구조체 포인터</a><a href="#summary">한 줄 정리</a></nav>
     <article>
       <h2 id="pointer">GPIO 포트를 전달하는 포인터</h2>
       <p>서로 다른 GPIO Port에 연결된 LED를 하나의 함수로 제어하기 위해 Port는 포인터로, Pin은 값으로 전달했다.</p>
@@ -158,6 +158,23 @@ STM32F401RE의 일반적인 계산: data[16] 16byte + size_t 4byte = 20byte</cod
       <p>멤버 순서와 CPU 정렬 규칙에 따라 Padding byte가 들어갈 수도 있다. 정확한 크기는 대상 환경에서 <code>sizeof(CommandBuffer)</code>로 확인한다. 현재 DS-01은 이 값을 출력하지 않았으므로 위 수치는 실행 출력이 아닌 자료형 크기 계산이다.</p>
       <h3>빌드 상태와 배운 점</h3>
       <ul><li>PC x64 MSVC Build Tools에서 CMake 빌드와 CTest 1개가 통과했다.</li><li>STM32CubeIDE ARM GCC에서 문법·경고 검사를 통과했다.</li><li>배열 크기와 구조체 전체 크기는 다르며, 같은 C 코드도 대상 환경에 따라 <code>size_t</code> 크기가 달라질 수 있다.</li></ul>
+
+      <h2 id="struct-pointer">구조체 변수와 구조체 포인터: <code>&amp;</code>, <code>*</code>, <code>-&gt;</code></h2>
+      <h3>구현 목표</h3>
+      <p><code>CommandBuffer</code>를 함수에 전달하면서 구조체 변수, 구조체 포인터, 주소 연산자와 역참조 연산자의 관계를 이해한다.</p>
+      <pre><code>CommandBuffer buffer;
+command_buffer_reset(&amp;buffer);
+
+static void command_buffer_reset(CommandBuffer *buffer)
+{
+    buffer-&gt;length = 0U;
+    buffer-&gt;data[0] = '\0';
+}</code></pre>
+      <h3>코드 설명</h3>
+      <ul><li><code>buffer</code>: 구조체 변수 자체</li><li><code>&amp;buffer</code>: 구조체 변수의 메모리 주소</li><li><code>CommandBuffer *buffer</code>: <code>CommandBuffer</code>를 가리키는 포인터 매개변수</li><li><code>*pointer</code>: 포인터가 가리키는 실제 구조체에 접근</li><li><code>pointer-&gt;member</code>: 구조체 포인터의 멤버에 접근</li></ul>
+      <p><code>pointer-&gt;length</code>는 <code>(*pointer).length</code>와 같은 표현이다. 함수에 주소를 전달하는 이유는 원본 구조체의 <code>length</code>와 <code>data</code>를 직접 수정하기 위해서다.</p>
+      <h3>배운 점</h3>
+      <p>구조체 변수에는 <code>.</code>, 구조체 포인터에는 <code>-&gt;</code>를 사용한다. <code>&amp;</code>는 주소를 얻고, <code>*</code>는 그 주소가 가리키는 대상을 사용한다.</p>
 
       <h2 id="summary">한 줄 정리</h2>
       <p class="summary"><strong>포인터와 구조체로 하드웨어 레지스터를 표현하고, <code>enum</code> 상태 머신과 고정 폭 정수형으로 임베디드 코드의 의미와 데이터 크기를 명확하게 만들었다.</strong></p>
