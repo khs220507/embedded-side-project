@@ -155,6 +155,32 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 현재 `_write()`는 DMA로 데이터를 옮기지만 완료 Callback까지 기다리므로 호출 방식은 동기식이다. `__WFI()`의 CPU 동작은 [`CMSIS.md`](../fundamentals/CMSIS.md)에서 관리한다.
 
+## DMA RX Event와 Ring Buffer 연결
+
+`03_UART_DMA`는 DMA가 임시 Buffer에 모은 데이터를 Callback에서 바로 명령 문자열에 붙이지 않는다. `HAL_UARTEx_RxEventCallback()`은 수신한 바이트를 `uartRxRing`에 넣고 DMA 수신을 다시 시작한다.
+
+```c
+for (uint16_t i = 0U; i < size; i++)
+{
+    if (!UART_RingBufferPush(&uartRxRing, uartDmaRxBuffer[i]))
+    {
+        uartRxOverflow = 1U;
+    }
+}
+```
+
+Main Loop는 `UART_ProcessReceivedData()`에서 Ring Buffer를 하나씩 꺼내 기존 명령 조립 코드에 전달한다.
+
+```c
+while ((uartCommandReady == 0U) &&
+       UART_RingBufferPop(&uartRxRing, &receivedByte))
+{
+    UART_StoreReceivedByte(receivedByte);
+}
+```
+
+이 구현은 Callback이 생산자(`tail`), Main Loop가 소비자(`head`)인 단일 생산자·단일 소비자 구조다. `head == tail`은 Empty이며, 다음 `tail`이 `head`와 같아지면 Full로 판단하므로 배열 한 칸은 항상 비워 둔다. Ring Buffer 용량이 128이면 실제 저장 가능 바이트는 127개다.
+
 ## 코드 설명
 
 ### RX와 TX 주소 이동

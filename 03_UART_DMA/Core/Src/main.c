@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 
 /* USER CODE END Includes */
@@ -46,6 +47,7 @@ typedef enum
 
 #define BUTTON_DEBOUNCE_MS 50U
 #define UART_RX_BUFFER_SIZE 32U
+#define UART_RX_RING_CAPACITY 128U
 #define UART_TX_BUFFER_SIZE 128U
 
 /* USER CODE END PD */
@@ -65,6 +67,14 @@ DMA_HandleTypeDef hdma_usart2_tx;
 
 static LED_State currentState = LED_STATE_IDLE;
 static uint8_t uartDmaRxBuffer[UART_RX_BUFFER_SIZE];
+typedef struct
+{
+  uint8_t data[UART_RX_RING_CAPACITY];
+  volatile uint8_t head;
+  volatile uint8_t tail;
+} UART_RingBuffer;
+
+static UART_RingBuffer uartRxRing;
 static char uartRxBuffer[UART_RX_BUFFER_SIZE];
 static volatile uint8_t uartRxIndex = 0U;
 static volatile uint8_t uartCommandReady = 0U;
@@ -87,7 +97,10 @@ static void LED_ShowState(LED_State state);
 static void UART_PrintState(LED_State state);
 static void UART_HandleCommand(const char *command);
 static void UART_StartDmaReceive(void);
-static void UART_StoreReceivedData(const uint8_t *data, uint16_t size);
+static bool UART_RingBufferPush(UART_RingBuffer *buffer, uint8_t value);
+static bool UART_RingBufferPop(UART_RingBuffer *buffer, uint8_t *value);
+static void UART_StoreReceivedByte(uint8_t receivedByte);
+static void UART_ProcessReceivedData(void);
 
 /* USER CODE END PFP */
 
@@ -206,6 +219,8 @@ int main(void)
     }
 
     lastButtonReading = buttonReading;
+
+    UART_ProcessReceivedData();
 
     if (uartCommandReady != 0U)
     {
@@ -502,37 +517,68 @@ static void UART_StartDmaReceive(void)
   __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
 }
 
-static void UART_StoreReceivedData(const uint8_t *data, uint16_t size)
+static bool UART_RingBufferPush(UART_RingBuffer *buffer, uint8_t value)
 {
-  for (uint16_t i = 0U; (i < size) && (uartCommandReady == 0U); i++)
-  {
-    uint8_t receivedByte = data[i];
+  uint8_t nextTail = (uint8_t)((buffer->tail + 1U) % UART_RX_RING_CAPACITY);
 
-    if ((receivedByte == '\r') || (receivedByte == '\n'))
+  if (nextTail == buffer->head)
+  {
+    return false;
+  }
+
+  buffer->data[buffer->tail] = value;
+  buffer->tail = nextTail;
+  return true;
+}
+
+static bool UART_RingBufferPop(UART_RingBuffer *buffer, uint8_t *value)
+{
+  if (buffer->head == buffer->tail)
+  {
+    return false;
+  }
+
+  *value = buffer->data[buffer->head];
+  buffer->head = (uint8_t)((buffer->head + 1U) % UART_RX_RING_CAPACITY);
+  return true;
+}
+
+static void UART_StoreReceivedByte(uint8_t receivedByte)
+{
+  if ((receivedByte == '\r') || (receivedByte == '\n'))
+  {
+    if (uartRxIndex > 0U)
     {
-      if (uartRxIndex > 0U)
-      {
-        uartRxBuffer[uartRxIndex] = '\0';
-        uartCommandReady = 1U;
-      }
-    }
-    else if ((receivedByte == '\b') || (receivedByte == 0x7FU))
-    {
-      if (uartRxIndex > 0U)
-      {
-        uartRxIndex--;
-      }
-    }
-    else if (uartRxIndex < (UART_RX_BUFFER_SIZE - 1U))
-    {
-      uartRxBuffer[uartRxIndex] = (char)receivedByte;
-      uartRxIndex++;
-    }
-    else
-    {
-      uartRxOverflow = 1U;
+      uartRxBuffer[uartRxIndex] = '\0';
       uartCommandReady = 1U;
     }
+  }
+  else if ((receivedByte == '\b') || (receivedByte == 0x7FU))
+  {
+    if (uartRxIndex > 0U)
+    {
+      uartRxIndex--;
+    }
+  }
+  else if (uartRxIndex < (UART_RX_BUFFER_SIZE - 1U))
+  {
+    uartRxBuffer[uartRxIndex] = (char)receivedByte;
+    uartRxIndex++;
+  }
+  else
+  {
+    uartRxOverflow = 1U;
+    uartCommandReady = 1U;
+  }
+}
+
+static void UART_ProcessReceivedData(void)
+{
+  uint8_t receivedByte;
+
+  while ((uartCommandReady == 0U) && UART_RingBufferPop(&uartRxRing, &receivedByte))
+  {
+    UART_StoreReceivedByte(receivedByte);
   }
 }
 
@@ -540,7 +586,14 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
 {
   if (huart->Instance == USART2)
   {
-    UART_StoreReceivedData(uartDmaRxBuffer, size);
+    for (uint16_t i = 0U; i < size; i++)
+    {
+      if (!UART_RingBufferPush(&uartRxRing, uartDmaRxBuffer[i]))
+      {
+        uartRxOverflow = 1U;
+      }
+    }
+
     UART_StartDmaReceive();
   }
 }

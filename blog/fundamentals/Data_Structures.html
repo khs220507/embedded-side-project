@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>STM32 자료구조: 배열과 문자열 Buffer</title>
+  <title>STM32 자료구조: Queue와 Ring Buffer</title>
   <style>
     :root { --text:#222; --muted:#666; --line:#e5e5e5; --primary:#2563eb; --soft:#f6f8fa; }
     * { box-sizing:border-box; } html { scroll-behavior:smooth; } body { margin:0; color:var(--text); background:#fff; font:16px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; word-break:keep-all; }
@@ -13,8 +13,8 @@
   </style>
 </head>
 <body>
-  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 자료구조: 배열과 문자열 Buffer</h1><p class="hero-description">고정 길이 Command Buffer로 배열 Index, 문자열 끝 문자, 경계 검사를 학습한다.</p></div></header>
-  <main><nav class="toc"><a href="#concept">기본 개념</a><a href="#goal">구현 목표</a><a href="#code">핵심 코드</a><a href="#flow">동작 흐름</a><a href="#result">실행 결과</a><a href="#learned">배운 점</a></nav><article>
+  <header class="hero"><div class="hero-inner"><p class="eyebrow">Embedded Study Note</p><h1>STM32 자료구조: Queue와 Ring Buffer</h1><p class="hero-description">배열 기반 FIFO와 Ring Buffer의 Index 순환, Full·Empty 처리를 학습한다.</p></div></header>
+  <main><nav class="toc"><a href="#concept">기본 개념</a><a href="#goal">구현 목표</a><a href="#code">핵심 코드</a><a href="#flow">동작 흐름</a><a href="#ring">Ring Buffer</a><a href="#result">실행 결과</a><a href="#learned">배운 점</a></nav><article>
     <section id="concept"><h2>기본 개념</h2><p>C 문자열은 문자 배열의 마지막 <code>\0</code>으로 끝난다. 따라서 배열의 전체 용량을 문자 데이터에 모두 쓰면 안 된다.</p><div class="diagram"><div class="diagram-row"><div class="node">문자 입력</div><div class="arrow">→</div><div class="node primary">CommandBuffer</div><div class="arrow">→</div><div class="node">완성된 명령</div></div></div></section>
     <section id="goal"><h2>구현 목표</h2><ul><li>고정 길이 <code>char</code> 배열에 명령을 저장한다.</li><li><code>length</code>로 다음 저장 위치를 관리한다.</li><li><code>\n</code>에서 명령을 완료하고, Overflow는 거부한다.</li></ul></section>
     <section id="code"><h2>핵심 코드</h2><pre><code>typedef struct
@@ -23,8 +23,9 @@
     size_t length;
 } CommandBuffer;</code></pre><p><code>command_buffer_append()</code>는 글자를 추가한 뒤 항상 <code>\0</code>을 기록한다. 용량이 16이면 실제 Payload는 15글자까지다.</p></section>
     <section id="flow"><h2>동작 흐름</h2><div class="diagram"><div class="diagram-row"><div class="node">문자 추가</div><div class="arrow">→</div><div class="node">경계 검사</div><div class="arrow">→</div><div class="node">\n 확인</div><div class="arrow">→</div><div class="node primary">완료 또는 계속</div></div></div><p>경계를 넘으면 기존 Buffer는 유지하고 <code>COMMAND_BUFFER_FULL</code>을 반환한다.</p></section>
-    <section id="result"><h2>실행 결과</h2><ul><li><code>arm-none-eabi-gcc</code>의 엄격한 문법·경고 검사를 통과했다.</li><li>MSVC Build Tools에서 호스트 CMake 빌드와 CTest를 실행했고, 1개 테스트가 통과했다.</li><li>STM32 보드 검증은 하지 않았다. 다음 단계에서 UART DMA 수신 흐름에 연결한다.</li></ul></section>
-    <section id="learned"><h2>배운 점</h2><p>고정 배열의 경계 검사와 <code>\0</code> 예약은 임베디드 문자열 처리의 기본 안전 장치다. 원형 버퍼도 이 배열·Index·길이 관리 개념에서 출발한다.</p><div class="summary">한 줄 정리: 고정 길이 Command Buffer는 배열 범위를 지키면서 한 줄 명령을 모으는 가장 단순한 자료구조다.</div></section>
+    <section id="result"><h2>실행 결과</h2><ul><li><code>arm-none-eabi-gcc</code>의 엄격한 문법·경고 검사를 통과했다.</li><li>MSVC Build Tools에서 호스트 CMake 빌드와 CTest를 실행했고, Ring Buffer의 FIFO·Wrap-around·Full·Empty 테스트를 포함한 1개 테스트가 통과했다.</li><li>STM32 보드 검증은 하지 않았다. 다음 단계에서 UART DMA 수신 흐름에 연결한다.</li></ul></section>
+    <section id="learned"><h2>배운 점</h2><p>고정 배열의 경계 검사와 <code>\0</code> 예약은 임베디드 문자열 처리의 기본 안전 장치다. Ring Buffer는 이 배열·Index·길이 관리 개념을 FIFO 데이터 흐름으로 확장한다. UART DMA와 Interrupt가 함께 접근할 때의 동시성 처리는 다음 학습 범위다.</p><div class="summary">한 줄 정리: Ring Buffer는 배열을 이동하지 않고 <code>head</code>와 <code>tail</code>을 순환시켜 고정 메모리에서 FIFO를 구현한다.</div></section>
+    <section id="ring"><h2>Ring Buffer</h2><p><code>RingBuffer</code>는 <code>head</code>를 다음 dequeue 위치, <code>tail</code>을 다음 enqueue 위치로 사용하고 <code>count</code>로 Empty와 Full을 구분한다.</p><p><code>data[tail] = value;</code>로 저장한 뒤 <code>tail = (tail + 1U) % RING_BUFFER_CAPACITY;</code>로 Index를 순환시키고 <code>count</code>를 증가시킨다.</p><div class="diagram"><div class="diagram-row"><div class="node">enqueue</div><div class="arrow">→</div><div class="node primary">tail 증가</div><div class="arrow">→</div><div class="node">마지막 뒤에는 0</div></div><div class="diagram-row"><div class="node">dequeue</div><div class="arrow">→</div><div class="node primary">head 증가</div><div class="arrow">→</div><div class="node">FIFO 유지</div></div></div><p>용량 4에서 앞쪽 데이터를 꺼내면 <code>tail</code>이 0으로 돌아가 빈 칸을 재사용한다. Full에서는 저장하지 않고, Empty에서는 꺼내지 않는다.</p></section>
   </article></main>
 </body>
 </html>

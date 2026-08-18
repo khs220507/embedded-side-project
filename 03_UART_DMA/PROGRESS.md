@@ -1,6 +1,6 @@
 # UART DMA 프로젝트 진도표
 
-마지막 업데이트: 2026-08-15
+마지막 업데이트: 2026-08-18
 
 | 단계 | 학습 내용 | 상태 |
 |---:|---|---|
@@ -12,12 +12,13 @@
 | 6 | `_write()`와 `HAL_UART_Transmit_DMA()` 연결 | 구현·빌드 완료 |
 | 7 | Polling / Interrupt / DMA 비교 | 문서화 완료 |
 | 8 | 실제 보드에서 DMA 송수신과 LED 명령 확인 | 완료 |
+| 9 | DMA RX Event와 Ring Buffer 연결 | 구현·Debug 빌드 완료 · 보드 재검증 필요 |
 
 ## 현재 빌드
 
 - `02_UART` Debug 빌드 성공
 - `03_UART_DMA` Debug 빌드 성공
 - `03_UART_DMA.elf` 생성 성공
-- RAM 2.51%, FLASH 3.86% 사용
+- RAM 2.65%, FLASH 3.91% 사용
 
-STM32CubeProgrammer로 Flash 기록과 Verify를 완료했고, 실제 보드에서 UART DMA 송수신과 LED 명령 동작을 확인했다.
+Ring Buffer 연결 전 버전은 STM32CubeProgrammer Flash·Verify와 실제 보드의 UART DMA 송수신·LED 명령 동작을 확인했다. Ring Buffer 연결 후 버전은 Debug 빌드까지 완료했으며, Flash·Verify와 보드 동작은 추가 확인이 필요하다.

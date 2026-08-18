@@ -49,6 +49,23 @@ typedef enum
     QUEUE_FULL
 } QueueResult;
 
+#define RING_BUFFER_CAPACITY 4U
+
+typedef struct
+{
+    int data[RING_BUFFER_CAPACITY];
+    size_t head;
+    size_t tail;
+    size_t count;
+} RingBuffer;
+
+typedef enum
+{
+    RING_BUFFER_OK,
+    RING_BUFFER_EMPTY,
+    RING_BUFFER_FULL
+} RingBufferResult;
+
 static void command_buffer_reset(CommandBuffer *buffer)
 {
     buffer->length = 0U;
@@ -144,6 +161,41 @@ static QueueResult queue_dequeue(Queue *queue, int *value)
     return QUEUE_OK;
 }
 
+static void ring_buffer_reset(RingBuffer *buffer)
+{
+    buffer->head = 0U;
+    buffer->tail = 0U;
+    buffer->count = 0U;
+}
+
+static RingBufferResult ring_buffer_enqueue(RingBuffer *buffer, int value)
+{
+    if (buffer->count >= RING_BUFFER_CAPACITY)
+    {
+        return RING_BUFFER_FULL;
+    }
+
+    buffer->data[buffer->tail] = value;
+    buffer->tail = (buffer->tail + 1U) % RING_BUFFER_CAPACITY;
+    buffer->count++;
+
+    return RING_BUFFER_OK;
+}
+
+static RingBufferResult ring_buffer_dequeue(RingBuffer *buffer, int *value)
+{
+    if (buffer->count == 0U)
+    {
+        return RING_BUFFER_EMPTY;
+    }
+
+    *value = buffer->data[buffer->head];
+    buffer->head = (buffer->head + 1U) % RING_BUFFER_CAPACITY;
+    buffer->count--;
+
+    return RING_BUFFER_OK;
+}
+
 static bool expect(bool condition, const char *test_name)
 {
     if (!condition)
@@ -221,18 +273,55 @@ static bool test_queue_fifo(void)
            expect(queue_dequeue(&queue, &value) == QUEUE_EMPTY, "empty queue is rejected");
 }
 
+static bool test_ring_buffer_wraparound(void)
+{
+    RingBuffer buffer;
+    int value = 0;
+
+    ring_buffer_reset(&buffer);
+
+    return expect(buffer.head == 0U && buffer.tail == 0U && buffer.count == 0U,
+                  "reset clears ring buffer indexes") &&
+           expect(ring_buffer_enqueue(&buffer, 10) == RING_BUFFER_OK, "ring buffer accepts first value") &&
+           expect(ring_buffer_enqueue(&buffer, 20) == RING_BUFFER_OK, "ring buffer accepts second value") &&
+           expect(ring_buffer_enqueue(&buffer, 30) == RING_BUFFER_OK, "ring buffer accepts third value") &&
+           expect(buffer.head == 0U && buffer.tail == 3U && buffer.count == 3U,
+                  "enqueue advances tail and count") &&
+           expect(ring_buffer_dequeue(&buffer, &value) == RING_BUFFER_OK && value == 10,
+                  "ring buffer returns the oldest value") &&
+           expect(buffer.head == 1U && buffer.tail == 3U && buffer.count == 2U,
+                  "dequeue advances head and count") &&
+           expect(ring_buffer_enqueue(&buffer, 40) == RING_BUFFER_OK,
+                  "ring buffer reuses the released slot") &&
+           expect(ring_buffer_enqueue(&buffer, 50) == RING_BUFFER_OK,
+                  "ring buffer wraps tail to the beginning") &&
+           expect(ring_buffer_enqueue(&buffer, 60) == RING_BUFFER_FULL,
+                  "full ring buffer rejects a new value") &&
+           expect(ring_buffer_dequeue(&buffer, &value) == RING_BUFFER_OK && value == 20,
+                  "ring buffer keeps FIFO order after wrapping") &&
+           expect(ring_buffer_dequeue(&buffer, &value) == RING_BUFFER_OK && value == 30,
+                  "ring buffer returns the next value") &&
+           expect(ring_buffer_dequeue(&buffer, &value) == RING_BUFFER_OK && value == 40,
+                  "ring buffer returns the wrapped value") &&
+           expect(ring_buffer_dequeue(&buffer, &value) == RING_BUFFER_OK && value == 50,
+                  "ring buffer returns the final value") &&
+           expect(ring_buffer_dequeue(&buffer, &value) == RING_BUFFER_EMPTY,
+                  "empty ring buffer is rejected");
+}
+
 int main(void)
 {
     const bool tests_passed = test_command_completion() &&
                               test_buffer_boundary() &&
                               test_stack_lifo() &&
-                              test_queue_fifo();
+                              test_queue_fifo() &&
+                              test_ring_buffer_wraparound();
 
     if (!tests_passed)
     {
         return 1;
     }
 
-    printf("All command buffer tests passed.\n");
+    printf("All data structure tests passed.\n");
     return 0;
 }

@@ -68,7 +68,13 @@ HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);</code></pre>
 {
     if (huart-&gt;Instance == USART2)
     {
-        UART_StoreReceivedData(uartDmaRxBuffer, size);
+        for (uint16_t i = 0U; i < size; i++)
+        {
+            if (!UART_RingBufferPush(&amp;uartRxRing, uartDmaRxBuffer[i]))
+            {
+                uartRxOverflow = 1U;
+            }
+        }
         UART_StartDmaReceive();
     }
 }</code></pre>
@@ -76,7 +82,15 @@ HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);</code></pre>
       <h3>DMA Buffer와 명령 Buffer</h3>
       <pre><code>static uint8_t uartDmaRxBuffer[UART_RX_BUFFER_SIZE];
 static char uartRxBuffer[UART_RX_BUFFER_SIZE];</code></pre>
-      <ul><li><code>uartDmaRxBuffer</code>: DMA가 직접 기록하는 임시 Buffer</li><li><code>uartRxBuffer</code>: 여러 DMA Event의 문자를 Enter까지 누적하는 C 문자열 Buffer</li></ul>
+      <ul><li><code>uartDmaRxBuffer</code>: DMA가 직접 기록하는 임시 Buffer</li><li><code>uartRxRing</code>: Callback과 Main Loop 사이에서 수신 바이트를 보관하는 Ring Buffer</li><li><code>uartRxBuffer</code>: Ring Buffer에서 꺼낸 문자를 Enter까지 누적하는 C 문자열 Buffer</li></ul>
+
+      <h3>RX Ring Buffer와 Main Loop</h3>
+      <p>Callback은 생산자이므로 <code>tail</code>을 이동하고, Main Loop는 소비자이므로 <code>head</code>를 이동한다. <code>head == tail</code>은 Empty이며 다음 <code>tail</code>이 <code>head</code>와 같으면 Full이다. 따라서 용량 128의 배열에서 실제 저장 가능 크기는 127바이트다.</p>
+      <pre><code>while ((uartCommandReady == 0U) &amp;&amp;
+       UART_RingBufferPop(&amp;uartRxRing, &amp;receivedByte))
+{
+    UART_StoreReceivedByte(receivedByte);
+}</code></pre>
 
       <h3>DMA 송신과 완료 Callback</h3>
       <pre><code>memcpy(uartDmaTxBuffer, &amp;ptr[sent], chunkSize);

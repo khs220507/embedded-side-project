@@ -1,6 +1,6 @@
 # Project 09 - Data Structures Basic
 
-`DS-01` 배열·문자열 버퍼를 C 코드로 구현하고 테스트하는 학습 챕터다. STM32 Peripheral을 새로 설정하지 않으며, 다음 단계에서 `03_UART_DMA`의 수신 버퍼와 연결한다.
+`DS-01` 배열·문자열 버퍼와 기본 자료구조를 C 코드로 구현하고 테스트하는 학습 챕터다. STM32 Peripheral을 새로 설정하지 않으며, 다음 단계에서 링버퍼를 `03_UART_DMA`의 수신 버퍼와 연결한다.
 
 ## 구현 목표
 
@@ -8,6 +8,8 @@
 - 현재 길이를 `length`로 관리한다.
 - `\n`을 만나면 문자열 끝에 `\0`을 기록하고 명령 완료를 알린다.
 - 버퍼 끝을 넘는 문자는 거부해 배열 범위를 벗어나지 않는다.
+- `RingBuffer`는 `head`, `tail`, `count`로 FIFO 순서와 빈 칸을 관리한다.
+- `tail`과 `head`가 마지막 Index 다음에 0으로 돌아가도록 Wrap-around를 구현한다.
 
 ## 실행
 
@@ -21,7 +23,7 @@ VS Code에서는 저장소 루트를 연 채 CMake Tools의 Configure·Build·Te
 
 ## 현재 상태
 
-- 구현: 완료
+- 구현: 완료 — Command Buffer, Stack, Queue, Ring Buffer
 - ARM GCC 문법·경고 검사: 완료 (`-Wall -Wextra -Wpedantic -Werror`)
 - 호스트 CMake 빌드·CTest: 완료 (MSVC Build Tools, 1/1 통과)
 - STM32 보드 검증: 해당 없음 — 다음 단계에서 UART DMA 코드와 연결
